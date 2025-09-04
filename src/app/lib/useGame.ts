@@ -14,7 +14,9 @@ const shuffleArray = <T>(array: T[]): T[] => {
   return newArray
 }
 
-const evaluateCard = (card: ChemicalCard, topic: Topic): number => {
+const evaluateCard = (card: ChemicalCard, topic: Topic | null): number => {
+  if (!topic) return Math.random() * 100
+
   switch (topic.text) {
     case '分子量が最も小さいもの':
       if (card.unit !== 'g') return 0
@@ -145,7 +147,11 @@ export const useGame = () => {
   }, [])
 
   // コンピューターのカード選択
-  const computerSelectCard = useCallback((currentTopic: Topic, computerHand: ChemicalCard[]) => {
+  const computerSelectCard = useCallback((currentTopic: Topic | null, computerHand: ChemicalCard[]) => {
+    if (!currentTopic) {
+      return computerHand[0] || null
+    }
+
     let bestCardIndex = 0
     let bestScore = -1
 
@@ -312,7 +318,12 @@ export const useGame = () => {
     }
 
     const playerCard = selectedCard || gameState.playerSelectedCard || gameState.playerHand[Math.floor(Math.random() * gameState.playerHand.length)]
-    const computerCard = computerSelectCard(gameState.currentTopic!, gameState.computerHand)
+    const computerCard = computerSelectCard(gameState.currentTopic, gameState.computerHand)
+
+    if (!playerCard || !computerCard) {
+      console.error('プレイヤーまたはコンピューターのカードが見つかりません')
+      return { playerCard: null, computerCard: null }
+    }
 
     setGameState(prev => ({
       ...prev,
