@@ -1,4 +1,7 @@
+/* src/app/globals.css (Updated) */
 @import "tailwindcss";
+@import "./components/Card/CardAnimations.css";
+@import "./components/Feedback/FeedbackAnimations.css";
 
 :root {
   --foreground-rgb: 0, 0, 0;
@@ -40,6 +43,23 @@ body {
   animation: pulse-glow 1s ease-in-out infinite;
 }
 
+/* 3D変換の基盤 */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-gpu {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* パフォーマンス最適化 */
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
 /* スクロールバーのスタイリング */
 ::-webkit-scrollbar {
   width: 8px;
@@ -59,7 +79,153 @@ body {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* モバイル対応 */
+/* グラデーション背景 */
+.gradient-background {
+  background: linear-gradient(
+    135deg,
+    #667eea 0%,
+    #764ba2 25%,
+    #667eea 50%,
+    #f093fb 75%,
+    #f5576c 100%
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* カスタムボタンスタイル */
+.btn-primary {
+  @apply bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700;
+  @apply text-white font-semibold py-2 px-4 rounded-lg;
+  @apply transition-all duration-300 transform hover:scale-105 hover:shadow-lg;
+  @apply active:scale-95;
+}
+
+.btn-secondary {
+  @apply bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700;
+  @apply text-white font-semibold py-2 px-4 rounded-lg;
+  @apply transition-all duration-300 transform hover:scale-105 hover:shadow-lg;
+  @apply active:scale-95;
+}
+
+.btn-success {
+  @apply bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600;
+  @apply text-white font-semibold py-2 px-4 rounded-lg;
+  @apply transition-all duration-300 transform hover:scale-105 hover:shadow-lg;
+  @apply active:scale-95;
+}
+
+.btn-danger {
+  @apply bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600;
+  @apply text-white font-semibold py-2 px-4 rounded-lg;
+  @apply transition-all duration-300 transform hover:scale-105 hover:shadow-lg;
+  @apply active:scale-95;
+}
+
+/* カードコンテナの基本スタイル */
+.card-container {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.card-container:not(.disabled) {
+  cursor: pointer;
+}
+
+.card-container.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ガラスモーフィズム効果 */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+/* ネオモーフィズム効果 */
+.neomorphism {
+  background: linear-gradient(145deg, #f0f0f0, #cacaca);
+  box-shadow: 20px 20px 60px #bebebe, -20px -20px 60px #ffffff;
+}
+
+.neomorphism-dark {
+  background: linear-gradient(145deg, #2a2a2a, #242424);
+  box-shadow: 20px 20px 60px #1e1e1e, -20px -20px 60px #303030;
+}
+
+/* テキストエフェクト */
+.text-glow {
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+}
+
+.text-outline {
+  text-shadow: 
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000;
+}
+
+/* カスタムローディングアニメーション */
+.loading-dots {
+  display: inline-block;
+}
+
+.loading-dots::after {
+  content: '';
+  animation: loadingDots 1.5s steps(4, end) infinite;
+}
+
+@keyframes loadingDots {
+  0%, 25% {
+    content: '';
+  }
+  50% {
+    content: '.';
+  }
+  75% {
+    content: '..';
+  }
+  100% {
+    content: '...';
+  }
+}
+
+/* パーティクルシステム用 */
+.particle {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 1024px) {
+  .card-container {
+    transform-style: flat;
+  }
+  
+  .card-container:hover:not(.disabled) {
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
 @media (max-width: 768px) {
   .game-container {
     padding: 1rem;
@@ -67,5 +233,88 @@ body {
   
   .card-grid {
     gap: 0.5rem;
+  }
+
+  .card-container {
+    transition-duration: 0.2s;
+  }
+  
+  .card-container:hover:not(.disabled) {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  /* モバイル向けタッチフィードバック */
+  .card-container:active:not(.disabled) {
+    transform: scale(0.95);
+  }
+}
+
+@media (max-width: 480px) {
+  .text-glow {
+    text-shadow: 0 0 5px currentColor;
+  }
+  
+  .glass-morphism {
+    backdrop-filter: blur(5px);
+  }
+}
+
+/* プリファースドモーション対応 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .card-container {
+    transition: none !important;
+  }
+  
+  .card-container:hover:not(.disabled) {
+    transform: none !important;
+  }
+}
+
+/* ダークモード調整 */
+@media (prefers-color-scheme: dark) {
+  .neomorphism {
+    background: linear-gradient(145deg, #2a2a2a, #242424);
+    box-shadow: 20px 20px 60px #1e1e1e, -20px -20px 60px #303030;
+  }
+}
+
+/* カスタムフォーカススタイル */
+.focus-ring {
+  @apply focus:outline-none focus:ring-4 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-transparent;
+}
+
+/* 高コントラストモード対応 */
+@media (prefers-contrast: high) {
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #000;
+  }
+  
+  .card-container {
+    border: 2px solid currentColor;
+  }
+}
+
+/* 印刷スタイル */
+@media print {
+  .card-container,
+  .glass-morphism,
+  .neomorphism {
+    background: white !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  
+  .text-glow {
+    text-shadow: none !important;
   }
 }
