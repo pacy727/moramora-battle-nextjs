@@ -1,9 +1,10 @@
-// src/app/components/GameScreen.tsx (Enhanced Version)
+// src/app/components/GameScreen.tsx (修正版)
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useGame } from '../lib/useGame'
 import { ChemicalCard } from '../types/game'
+import { FeedbackMessage } from '../types/feedback' // 修正: 新しいimport
 import { EnhancedCard } from './Card/EnhancedCard'
 import { 
   VisualFeedbackSystem, 
@@ -12,14 +13,6 @@ import {
   ScoreUpAnimation,
   BackgroundEffects 
 } from './Feedback/VisualFeedbackSystem'
-
-interface FeedbackMessage {
-  id: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  title: string
-  message: string
-  duration?: number
-}
 
 interface GameScreenProps {
   onBackToTitle: () => void
@@ -59,7 +52,7 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
     }
     setFeedbackMessages(prev => [...prev, newMessage])
   }
-
+  
   // フィードバックメッセージ削除
   const dismissMessage = (id: string) => {
     setFeedbackMessages(prev => prev.filter(msg => msg.id !== id))

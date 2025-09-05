@@ -1,20 +1,15 @@
-// src/app/components/Feedback/VisualFeedbackSystem.tsx
+// src/app/components/Feedback/VisualFeedbackSystem.tsx (修正版)
 'use client'
 
 import { useState, useEffect } from 'react'
-
-interface FeedbackMessage {
-  id: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  title: string
-  message: string
-  duration?: number
-}
-
-interface VisualFeedbackSystemProps {
-  messages: FeedbackMessage[]
-  onMessageDismiss: (id: string) => void
-}
+import type { 
+  FeedbackMessage, 
+  VisualFeedbackSystemProps,
+  FloatingParticlesProps,
+  ConfettiProps,
+  ScoreUpAnimationProps,
+  BackgroundEffectsProps
+} from '../../types/feedback'
 
 export const VisualFeedbackSystem = ({ messages, onMessageDismiss }: VisualFeedbackSystemProps) => {
   const [visibleMessages, setVisibleMessages] = useState<FeedbackMessage[]>([])
@@ -117,12 +112,6 @@ export const VisualFeedbackSystem = ({ messages, onMessageDismiss }: VisualFeedb
 }
 
 // フローティング粒子エフェクト
-interface FloatingParticlesProps {
-  count?: number
-  color?: string
-  size?: 'small' | 'medium' | 'large'
-}
-
 export const FloatingParticles = ({ 
   count = 20, 
   color = '#fbbf24',
@@ -156,11 +145,6 @@ export const FloatingParticles = ({
 }
 
 // 勝利時のコンフェッティエフェクト
-interface ConfettiProps {
-  active: boolean
-  duration?: number
-}
-
 export const Confetti = ({ active, duration = 3000 }: ConfettiProps) => {
   const [showConfetti, setShowConfetti] = useState(false)
 
@@ -199,12 +183,6 @@ export const Confetti = ({ active, duration = 3000 }: ConfettiProps) => {
 }
 
 // スコアアップアニメーション
-interface ScoreUpAnimationProps {
-  show: boolean
-  value: number
-  position: { x: number; y: number }
-}
-
 export const ScoreUpAnimation = ({ show, value, position }: ScoreUpAnimationProps) => {
   if (!show) return null
 
@@ -224,11 +202,6 @@ export const ScoreUpAnimation = ({ show, value, position }: ScoreUpAnimationProp
 }
 
 // バックグラウンドエフェクト
-interface BackgroundEffectsProps {
-  intensity?: 'low' | 'medium' | 'high'
-  theme?: 'default' | 'victory' | 'defeat'
-}
-
 export const BackgroundEffects = ({ 
   intensity = 'medium',
   theme = 'default'

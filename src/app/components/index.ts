@@ -1,4 +1,4 @@
-// src/app/components/index.ts
+// src/app/components/index.ts (修正版)
 // コンポーネントの統一エクスポートファイル
 
 // カード関連
@@ -20,5 +20,12 @@ export { CardGallery } from './CardGallery/CardGallery'
 export { default as EnhancedTitleScreen } from './TitleScreen'
 export { default as EnhancedGameScreen } from './GameScreen'
 
-// 型定義もエクスポート
-export type { FeedbackMessage } from './Feedback/VisualFeedbackSystem'
+// 型定義をエクスポート（別ファイルから）
+export type { 
+  FeedbackMessage,
+  VisualFeedbackSystemProps,
+  FloatingParticlesProps,
+  ConfettiProps,
+  ScoreUpAnimationProps,
+  BackgroundEffectsProps
+} from '../types/feedback'
