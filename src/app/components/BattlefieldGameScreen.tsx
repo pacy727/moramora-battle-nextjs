@@ -1,4 +1,4 @@
-// src/app/components/BattlefieldGameScreen.tsx (更新版 - 新しい計算システム統合)
+// src/app/components/BattlefieldGameScreen.tsx (修正版 - すべてのカードを選択可能に)
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -15,8 +15,7 @@ import {
 } from './Feedback/VisualFeedbackSystem'
 import { 
   getCardDisplayValue, 
-  getDetailedCalculation,
-  isCardSuitableForTopic 
+  getDetailedCalculation
 } from '../lib/calculationUtils'
 
 interface BattlefieldGameScreenProps {
@@ -58,7 +57,6 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
   const [feedbackMessages, setFeedbackMessages] = useState<FeedbackMessage[]>([])
   const [showConfetti, setShowConfetti] = useState<boolean>(false)
   const [scoreAnimation, setScoreAnimation] = useState<{show: boolean, value: number, position: {x: number, y: number}} | null>(null)
-  const [cardSuitability, setCardSuitability] = useState<{[key: number]: boolean}>({})
 
   // フィードバックメッセージ追加
   const addFeedbackMessage = (type: FeedbackMessage['type'], title: string, message: string, duration = 4000) => {
@@ -77,18 +75,7 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
     setFeedbackMessages(prev => prev.filter(msg => msg.id !== id))
   }
 
-  // カード適性を更新
-  useEffect(() => {
-    if (gameState.currentTopic && battlePhase === 'card-selection') {
-      const newSuitability: {[key: number]: boolean} = {}
-      gameState.playerHand.forEach((card, index) => {
-        newSuitability[index] = isCardSuitableForTopic(card, gameState.currentTopic!.text)
-      })
-      setCardSuitability(newSuitability)
-    }
-  }, [gameState.currentTopic, gameState.playerHand, battlePhase])
-
-  // カード選択処理
+  // カード選択処理（すべてのカードを選択可能に）
   const handleCardSelect = (card: ChemicalCard, index: number) => {
     if (battlePhase !== 'card-selection') return
     
@@ -96,16 +83,10 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
     setSelectedCardIndex(index)
     setBattlePhase('cards-revealed')
     
-    // カード適性チェックでフィードバック
+    // カード選択フィードバック（計算プロセスを表示）
     if (gameState.currentTopic) {
-      const isSuitable = isCardSuitableForTopic(card, gameState.currentTopic.text)
       const calculation = getDetailedCalculation(card, gameState.currentTopic.text)
-      
-      if (isSuitable) {
-        addFeedbackMessage('success', 'カード選択完了', `${calculation}`, 3000)
-      } else {
-        addFeedbackMessage('warning', '注意', `このカードでも計算可能です: ${calculation}`, 4000)
-      }
+      addFeedbackMessage('info', 'カード選択完了', `${calculation}`, 3000)
     }
     
     // カードバトル実行
@@ -171,7 +152,6 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
     setBattlePhase('topic-reveal')
     setSelectedCardIndex(null)
     setBattleResult(null)
-    setCardSuitability({})
     
     const topic = startNewRound()
     if (topic) {
@@ -238,7 +218,6 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
     setTopicDisplay('')
     setFeedbackMessages([])
     setShowConfetti(false)
-    setCardSuitability({})
     resetGame()
   }
 
@@ -366,6 +345,9 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
             <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
               <div className="bg-white/10 backdrop-blur-md rounded-lg px-6 py-3 text-white font-semibold animate-pulse">
                 カードを選択してください ({gameState.timeLeft}秒)
+                <div className="text-xs mt-1 text-yellow-300">
+                  どのカードでも選択可能です！mol計算で頑張りましょう
+                </div>
               </div>
             </div>
           )}
@@ -461,43 +443,27 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
           )}
         </div>
 
-        {/* プレイヤーの手札エリア */}
+        {/* プレイヤーの手札エリア（すべてのカードを選択可能に修正） */}
         <div className="h-32 bg-blue-900/20 backdrop-blur-sm border-t border-blue-500/30 flex flex-col items-center justify-center">
           <div className="text-blue-300 text-sm mb-2">あなたの手札</div>
           <div className="flex gap-2 overflow-x-auto px-4">
-            {gameState.playerHand.map((card, index) => {
-              const isSuitable = cardSuitability[index]
-              const isGrayed = battlePhase === 'card-selection' && isSuitable === false
-              
-              return (
-                <div key={`${card.formula}-${card.unit}-${index}`} className="relative">
-                  <EnhancedCard
-                    card={card}
-                    isSelected={selectedCardIndex === index}
-                    onClick={() => handleCardSelect(card, index)}
-                    disabled={battlePhase !== 'card-selection'}
-                    size="medium"
-                    glowEffect={battlePhase === 'card-selection' && isSuitable === true}
-                  />
-                  
-                  {/* カード適性インジケーター */}
-                  {battlePhase === 'card-selection' && (
-                    <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
-                      isSuitable 
-                        ? 'bg-green-400 animate-pulse' 
-                        : 'bg-yellow-400 opacity-60'
-                    }`} />
-                  )}
-                  
-                  {/* グレーアウトオーバーレイ */}
-                  {isGrayed && (
-                    <div className="absolute inset-0 bg-gray-600/50 rounded-xl flex items-center justify-center">
-                      <span className="text-xs text-white/80">要計算</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {gameState.playerHand.map((card, index) => (
+              <div key={`${card.formula}-${card.unit}-${index}`} className="relative">
+                <EnhancedCard
+                  card={card}
+                  isSelected={selectedCardIndex === index}
+                  onClick={() => handleCardSelect(card, index)}
+                  disabled={battlePhase !== 'card-selection'}
+                  size="medium"
+                  glowEffect={battlePhase === 'card-selection'} // すべてのカードが光る
+                />
+                
+                {/* すべてのカードが選択可能であることを示すインジケーター */}
+                {battlePhase === 'card-selection' && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+                )}
+              </div>
+            ))}
           </div>
         </div>
 

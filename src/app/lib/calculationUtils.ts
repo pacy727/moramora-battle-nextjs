@@ -1,4 +1,4 @@
-// src/app/lib/calculationUtils.ts (統合版)
+// src/app/lib/calculationUtils.ts (改善版 - より柔軟な計算)
 import { ChemicalCard } from '../types/game'
 
 // 分子量データベース（一般的な化合物）
@@ -47,15 +47,17 @@ export const convertCardValue = (card: ChemicalCard, targetUnit: 'g' | 'mol' | '
       break
   }
   
-  return -1 // 変換不可
+  // 変換不可能な場合でも、元の値を返して比較できるようにする
+  console.warn(`変換不可: ${card.formula} ${card.value}${card.unit} → ${targetUnit}`)
+  return currentValue // -1ではなく元の値を返す
 }
 
-// お題に応じたカードの比較値を計算
+// お題に応じたカードの比較値を計算（改善版）
 export const calculateComparisonValue = (card: ChemicalCard, topicText: string): number => {
   if (topicText.includes('分子量')) {
     if (topicText.includes('小さい')) {
       const value = convertCardValue(card, 'g')
-      return value === -1 ? -1 : 1000 - value // 小さいほど高スコア
+      return 1000 - value // 小さいほど高スコア
     } else {
       return convertCardValue(card, 'g') // 大きいほど高スコア
     }
@@ -64,7 +66,7 @@ export const calculateComparisonValue = (card: ChemicalCard, topicText: string):
   if (topicText.includes('mol数')) {
     if (topicText.includes('小さい')) {
       const value = convertCardValue(card, 'mol')
-      return value === -1 ? -1 : 1000 - value
+      return 1000 - value
     } else {
       return convertCardValue(card, 'mol')
     }
@@ -73,7 +75,7 @@ export const calculateComparisonValue = (card: ChemicalCard, topicText: string):
   if (topicText.includes('体積')) {
     if (topicText.includes('小さい')) {
       const value = convertCardValue(card, 'L')
-      return value === -1 ? -1 : 1000 - value
+      return 1000 - value
     } else {
       return convertCardValue(card, 'L')
     }
@@ -102,6 +104,8 @@ export const getCardConversionDisplay = (card: ChemicalCard, topicText: string):
       const mol = parseFloat(card.value) / molecularWeight
       const volume = mol * 22.4
       return `${card.formula} ${card.value}g = ${mol.toFixed(2)}mol = ${volume.toFixed(1)}L`
+    } else {
+      return `${card.formula} ${card.value}${card.unit} (分子量不明のため変換困難)`
     }
   }
   
@@ -112,6 +116,8 @@ export const getCardConversionDisplay = (card: ChemicalCard, topicText: string):
     } else if (card.unit === 'L') {
       const mol = parseFloat(card.value) / 22.4
       return `${card.formula} ${card.value}L = ${mol.toFixed(2)}mol`
+    } else {
+      return `${card.formula} ${card.value}${card.unit} (分子量不明のため変換困難)`
     }
   }
   
@@ -138,10 +144,6 @@ export const generateBattleExplanation = (
   const playerValue = calculateComparisonValue(playerCard, topicText)
   const computerValue = calculateComparisonValue(computerCard, topicText)
   
-  if (playerValue === -1 || computerValue === -1) {
-    return '計算不可能なカードが含まれています'
-  }
-  
   let explanation = `あなた: ${playerDisplay}\nCPU: ${computerDisplay}\n\n`
   
   if (playerValue > computerValue) {
@@ -158,12 +160,7 @@ export const generateBattleExplanation = (
 // カードの適正度を計算（AIの選択に使用）
 export const calculateCardSuitability = (card: ChemicalCard, topicText: string): number => {
   const comparisonValue = calculateComparisonValue(card, topicText)
-  
-  if (comparisonValue === -1) {
-    return 0 // 計算不可能なカードは低スコア
-  }
-  
-  return comparisonValue
+  return comparisonValue // すべてのカードが使用可能
 }
 
 // 勝敗を判定する
@@ -175,18 +172,6 @@ export const determineWinner = (
   const playerValue = calculateComparisonValue(playerCard, topicText)
   const computerValue = calculateComparisonValue(computerCard, topicText)
   
-  if (playerValue === -1 && computerValue === -1) {
-    return 'tie'
-  }
-  
-  if (playerValue === -1) {
-    return 'computer'
-  }
-  
-  if (computerValue === -1) {
-    return 'player'
-  }
-  
   if (playerValue > computerValue) {
     return 'player'
   } else if (computerValue > playerValue) {
@@ -196,24 +181,10 @@ export const determineWinner = (
   }
 }
 
-// お題に適したカードかどうかをチェック
+// お題に適したカードかどうかをチェック（教育目的のため、すべて適用可能とする）
 export const isCardSuitableForTopic = (card: ChemicalCard, topicText: string): boolean => {
-  if (topicText.includes('分子量') && card.unit !== 'g') {
-    return false
-  }
-  
-  if (topicText.includes('mol数') && card.unit !== 'mol') {
-    return false
-  }
-  
-  if (topicText.includes('体積') && card.unit !== 'L') {
-    return false
-  }
-  
-  if (topicText.includes('融点')) {
-    return true // 融点はすべてのカードで比較可能
-  }
-  
+  // 教育効果を重視し、すべてのカードを選択可能にする
+  // プレイヤーが自分でmol計算を行うことで学習効果を得る
   return true
 }
 
@@ -230,20 +201,26 @@ export const getDetailedCalculation = (card: ChemicalCard, topicText: string): s
       const mol = parseFloat(card.value) / molecularWeight
       const volume = mol * 22.4
       calculation += ` → ${parseFloat(card.value)} g ÷ ${molecularWeight} g/mol = ${mol.toFixed(2)} mol → ${mol.toFixed(2)} mol × 22.4 L/mol = ${volume.toFixed(1)} L`
+    } else {
+      calculation += ` → (分子量データがないため直接計算困難)`
     }
-  }
-  
-  if (topicText.includes('mol数') && card.unit !== 'mol') {
+  } else if (topicText.includes('mol数') && card.unit !== 'mol') {
     if (card.unit === 'g' && molecularWeight) {
       const mol = parseFloat(card.value) / molecularWeight
       calculation += ` → ${parseFloat(card.value)} g ÷ ${molecularWeight} g/mol = ${mol.toFixed(2)} mol`
     } else if (card.unit === 'L') {
       const mol = parseFloat(card.value) / 22.4
       calculation += ` → ${parseFloat(card.value)} L ÷ 22.4 L/mol = ${mol.toFixed(2)} mol`
+    } else {
+      calculation += ` → (分子量データがないため直接計算困難)`
     }
-  }
-  
-  if (topicText.includes('融点')) {
+  } else if (topicText.includes('分子量')) {
+    if (card.unit === 'g') {
+      calculation += ` → 分子量 ${card.value} g/mol`
+    } else {
+      calculation += ` → このカードは分子量情報ではありませんが、計算で比較可能`
+    }
+  } else if (topicText.includes('融点')) {
     calculation += ` → 融点 ${card.meltingPoint}℃`
   }
   
@@ -268,27 +245,40 @@ export const getCardComparisonValue = (card: ChemicalCard, topicText: string): n
     return card.meltingPoint
   }
   
-  return -1
+  return parseFloat(card.value) // フォールバック
 }
 
 // バトルフィールド専用：表示用の値文字列を取得
 export const getCardDisplayValue = (card: ChemicalCard, topicText: string): string => {
   const value = getCardComparisonValue(card, topicText)
-  
-  if (value === -1) {
-    return '計算不可'
-  }
+  const molecularWeight = MOLECULAR_WEIGHTS[card.formula]
   
   if (topicText.includes('分子量')) {
-    return `${value}g/mol`
+    if (card.unit === 'g') {
+      return `${value}g/mol`
+    } else if (molecularWeight) {
+      return `${value}g/mol (計算値)`
+    } else {
+      return `計算困難`
+    }
   }
   
   if (topicText.includes('mol数')) {
-    return `${value.toFixed(2)}mol`
+    if (card.unit === 'mol') {
+      return `${value}mol`
+    } else {
+      return `${value.toFixed(2)}mol (計算値)`
+    }
   }
   
   if (topicText.includes('体積')) {
-    return `${value.toFixed(1)}L`
+    if (card.unit === 'L') {
+      return `${value}L`
+    } else if (molecularWeight || card.unit === 'mol') {
+      return `${value.toFixed(1)}L (計算値)`
+    } else {
+      return `計算困難`
+    }
   }
   
   if (topicText.includes('融点')) {
