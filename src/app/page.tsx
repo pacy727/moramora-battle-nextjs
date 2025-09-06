@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import TitleScreen from './components/TitleScreen'
-import GameScreen from './components/GameScreen'
+import BattlefieldGameScreen from './components/BattlefieldGameScreen'
 
 type GameMode = 'title' | 'game'
 
@@ -24,7 +24,7 @@ export default function Home() {
       )}
       
       {gameMode === 'game' && (
-        <GameScreen onBackToTitle={handleBackToTitle} />
+        <BattlefieldGameScreen onBackToTitle={handleBackToTitle} />
       )}
     </>
   )

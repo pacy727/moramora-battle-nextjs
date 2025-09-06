@@ -1,10 +1,10 @@
-// src/app/components/GameScreen.tsx (修正版)
+// src/app/components/GameScreen.tsx (修正版 - レスポンシブ対応)
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useGame } from '../lib/useGame'
 import { ChemicalCard } from '../types/game'
-import { FeedbackMessage } from '../types/feedback' // 修正: 新しいimport
+import { FeedbackMessage } from '../types/feedback'
 import { EnhancedCard } from './Card/EnhancedCard'
 import { 
   VisualFeedbackSystem, 
@@ -227,7 +227,7 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
   const finalResult = gameState.gamePhase === 'finished' ? getFinalResult() : null
 
   return (
-    <div className="h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-800 p-3 overflow-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-800 p-2 md:p-4 overflow-hidden relative">
       {/* 背景エフェクト */}
       <BackgroundEffects 
         intensity="medium" 
@@ -255,37 +255,37 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
         />
       )}
 
-      <div className="max-w-7xl mx-auto h-full flex flex-col relative z-10">
+      <div className="max-w-6xl mx-auto min-h-screen flex flex-col relative z-10 py-2">
         {/* コンパクトヘッダー */}
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex justify-between items-center mb-2 md:mb-3">
           <button
             onClick={onBackToTitle}
-            className="bg-gray-500/20 hover:bg-gray-500/30 text-white font-semibold py-1 px-3 rounded-lg transition-all duration-300 backdrop-blur-sm text-sm hover:scale-105"
+            className="bg-gray-500/20 hover:bg-gray-500/30 text-white font-semibold py-1 px-2 md:px-3 rounded-lg transition-all duration-300 backdrop-blur-sm text-xs md:text-sm hover:scale-105"
           >
             ← タイトル
           </button>
           
-          <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent animate-pulse-glow">
+          <h1 className="text-lg md:text-xl lg:text-2xl font-bold bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent animate-pulse-glow">
             ⚗️ モラモラバトル ⚗️
           </h1>
           
-          <div className="w-16"></div>
+          <div className="w-12 md:w-16"></div>
         </div>
 
         {/* コンパクトスコアボード */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 mb-3 shadow-xl relative overflow-hidden">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-2 md:p-3 mb-2 md:mb-3 shadow-xl relative overflow-hidden">
           <FloatingParticles count={5} size="small" />
           <div className="flex justify-between items-center relative z-10">
             <div className="text-center">
-              <div className="text-white text-sm mb-1">プレイヤー</div>
-              <div className="text-2xl font-bold text-yellow-300 animate-pulse">
+              <div className="text-white text-xs md:text-sm mb-1">プレイヤー</div>
+              <div className="text-xl md:text-2xl font-bold text-yellow-300 animate-pulse">
                 {gameState.playerScore}
               </div>
             </div>
-            <div className="text-center text-white text-sm">🎯 先取3P</div>
+            <div className="text-center text-white text-xs md:text-sm">🎯 先取3P</div>
             <div className="text-center">
-              <div className="text-white text-sm mb-1">CPU</div>
-              <div className="text-2xl font-bold text-yellow-300 animate-pulse">
+              <div className="text-white text-xs md:text-sm mb-1">CPU</div>
+              <div className="text-xl md:text-2xl font-bold text-yellow-300 animate-pulse">
                 {gameState.computerScore}
               </div>
             </div>
@@ -293,12 +293,12 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
         </div>
 
         {/* コンパクトお題とタイマー */}
-        <div className="bg-white/15 backdrop-blur-md rounded-xl p-4 mb-3 text-center shadow-xl relative overflow-hidden">
-          <div className="text-lg md:text-xl font-bold text-red-300 mb-2 animate-bounce-in">
+        <div className="bg-white/15 backdrop-blur-md rounded-xl p-2 md:p-4 mb-2 md:mb-3 text-center shadow-xl relative overflow-hidden">
+          <div className="text-sm md:text-lg lg:text-xl font-bold text-red-300 mb-1 md:mb-2 animate-bounce-in">
             {gameState.currentTopic?.text || 'ゲーム開始を押してください'}
           </div>
           {gameState.timeLeft > 0 && (
-            <div className={`text-2xl md:text-3xl font-bold transition-all duration-300 ${
+            <div className={`text-xl md:text-2xl lg:text-3xl font-bold transition-all duration-300 ${
               gameState.timeLeft <= 3 
                 ? 'text-red-400 animate-pulse scale-110' 
                 : gameState.timeLeft <= 5 
@@ -310,12 +310,12 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
           )}
         </div>
 
-        {/* コンパクトカードエリア */}
-        <div className="flex-1 grid md:grid-cols-2 gap-3 mb-3">
+        {/* コンパクトカードエリア - フレックスボックスで高さ調整 */}
+        <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-2 md:gap-3 mb-2 md:mb-3 min-h-0">
           {/* プレイヤーエリア */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 shadow-xl flex flex-col relative overflow-hidden">
-            <div className="text-center text-sm font-semibold text-yellow-300 mb-2">あなたの手札</div>
-            <div className="flex flex-wrap gap-1 justify-center mb-3 flex-1">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-2 md:p-3 shadow-xl flex flex-col relative overflow-hidden min-h-0">
+            <div className="text-center text-xs md:text-sm font-semibold text-yellow-300 mb-1 md:mb-2">あなたの手札</div>
+            <div className="flex flex-wrap gap-1 justify-center mb-2 md:mb-3 flex-1 min-h-0 overflow-y-auto">
               {gameState.playerHand.map((card, index) => (
                 <EnhancedCard
                   key={`${card.formula}-${card.unit}-${index}`}
@@ -329,22 +329,22 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
                 />
               ))}
             </div>
-            <div className="flex justify-center items-center h-20">
+            <div className="flex justify-center items-center h-16 md:h-20">
               {gameState.playerSelectedCard && (
                 <EnhancedCard 
                   card={gameState.playerSelectedCard} 
                   isPlayed 
                   isRevealing={revealingCards}
-                  size="medium"
+                  size="small"
                 />
               )}
             </div>
           </div>
 
           {/* コンピューターエリア */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 shadow-xl flex flex-col relative overflow-hidden">
-            <div className="text-center text-sm font-semibold text-yellow-300 mb-2">CPUの手札</div>
-            <div className="flex flex-wrap gap-1 justify-center mb-3 flex-1">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-2 md:p-3 shadow-xl flex flex-col relative overflow-hidden min-h-0">
+            <div className="text-center text-xs md:text-sm font-semibold text-yellow-300 mb-1 md:mb-2">CPUの手札</div>
+            <div className="flex flex-wrap gap-1 justify-center mb-2 md:mb-3 flex-1 min-h-0 overflow-y-auto">
               {gameState.computerHand.map((card, index) => (
                 <EnhancedCard 
                   key={`${card.formula}-${card.unit}-comp-${index}`} 
@@ -354,13 +354,13 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
                 />
               ))}
             </div>
-            <div className="flex justify-center items-center h-20">
+            <div className="flex justify-center items-center h-16 md:h-20">
               {gameState.computerSelectedCard && (
                 <EnhancedCard 
                   card={gameState.computerSelectedCard} 
                   isPlayed 
                   isRevealing={revealingCards}
-                  size="medium"
+                  size="small"
                 />
               )}
             </div>
@@ -369,7 +369,7 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
 
         {/* 結果表示（コンパクト） */}
         {roundResult && (
-          <div className={`rounded-lg p-3 mb-3 text-center font-semibold text-xs leading-relaxed border-2 max-h-24 overflow-y-auto ${resultClass} animate-fade-in-up`}>
+          <div className={`rounded-lg p-2 md:p-3 mb-2 md:mb-3 text-center font-semibold text-xs leading-relaxed border-2 max-h-20 md:max-h-24 overflow-y-auto ${resultClass} animate-fade-in-up`}>
             {roundResult.split('\n').map((line, index) => (
               <div key={index} className="text-xs">{line}</div>
             ))}
@@ -377,11 +377,11 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
         )}
 
         {/* コンパクトコントロールボタン */}
-        <div className="text-center">
+        <div className="text-center flex-shrink-0">
           {gameState.gamePhase === 'waiting' && (
             <button
               onClick={handleStartNewRound}
-              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-2 px-6 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 mx-1 animate-pulse-glow"
+              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-1.5 md:py-2 px-4 md:px-6 rounded-full text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 mx-1 animate-pulse-glow"
             >
               開始
             </button>
@@ -390,7 +390,7 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
           {showNextButton && gameState.gamePhase !== 'finished' && (
             <button
               onClick={handleStartNewRound}
-              className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-2 px-6 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 mx-1 animate-bounce-in"
+              className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-1.5 md:py-2 px-4 md:px-6 rounded-full text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 mx-1 animate-bounce-in"
             >
               次へ
             </button>
@@ -398,7 +398,7 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
 
           <button
             onClick={handleResetGame}
-            className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-2 px-4 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 mx-1"
+            className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-1.5 md:py-2 px-3 md:px-4 rounded-full text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 mx-1"
           >
             リセット
           </button>
@@ -406,24 +406,24 @@ export default function EnhancedGameScreen({ onBackToTitle }: GameScreenProps) {
 
         {/* コンパクトゲーム終了画面 */}
         {finalResult && (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 text-center shadow-2xl max-w-md animate-zoom-in relative overflow-hidden">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 md:p-4 z-50">
+            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 md:p-6 text-center shadow-2xl max-w-sm md:max-w-md w-full animate-zoom-in relative overflow-hidden">
               <FloatingParticles count={15} color="#fbbf24" />
-              <h2 className="text-2xl font-bold text-white mb-4 animate-heartbeat">ゲーム終了！</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4 animate-heartbeat">ゲーム終了！</h2>
               <div 
-                className="text-lg mb-6 text-yellow-300 font-semibold animate-typewriter"
+                className="text-base md:text-lg mb-4 md:mb-6 text-yellow-300 font-semibold animate-typewriter"
                 dangerouslySetInnerHTML={{ __html: finalResult.message }}
               />
               <div className="space-x-2">
                 <button
                   onClick={handleResetGame}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-2 px-4 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 animate-bounce-in"
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-1.5 md:py-2 px-3 md:px-4 rounded-full text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 animate-bounce-in"
                 >
                   もう一度
                 </button>
                 <button
                   onClick={onBackToTitle}
-                  className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-2 px-4 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 animate-bounce-in"
+                  className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-1.5 md:py-2 px-3 md:px-4 rounded-full text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 animate-bounce-in"
                   style={{ animationDelay: '0.1s' }}
                 >
                   タイトル
