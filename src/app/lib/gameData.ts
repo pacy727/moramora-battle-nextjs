@@ -1,8 +1,19 @@
+// src/app/lib/gameData.ts (修正版 - 正しいお題とカードデータ)
 import { ChemicalCard, Topic, GameConfig } from '../types/game'
 
 // 化学カードのデータ
 export const CHEMICAL_CARDS: ChemicalCard[] = [
-  // 分子量での比較用
+  // mol数カード（これが表示されるカード）
+  { formula: 'H₂', value: '2', unit: 'mol', meltingPoint: -259 },
+  { formula: 'He', value: '1', unit: 'mol', meltingPoint: -272 },
+  { formula: 'CH₄', value: '1.5', unit: 'mol', meltingPoint: -182 },
+  { formula: 'H₂O', value: '3', unit: 'mol', meltingPoint: 0 },
+  { formula: 'NH₃', value: '2.5', unit: 'mol', meltingPoint: -78 },
+  { formula: 'N₂', value: '1', unit: 'mol', meltingPoint: -210 },
+  { formula: 'O₂', value: '1.2', unit: 'mol', meltingPoint: -218 },
+  { formula: 'CO₂', value: '0.8', unit: 'mol', meltingPoint: -57 },
+  
+  // 分子量カード（g/mol単位）
   { formula: 'H₂', value: '2', unit: 'g', meltingPoint: -259 },
   { formula: 'He', value: '4', unit: 'g', meltingPoint: -272 },
   { formula: 'CH₄', value: '16', unit: 'g', meltingPoint: -182 },
@@ -11,88 +22,123 @@ export const CHEMICAL_CARDS: ChemicalCard[] = [
   { formula: 'N₂', value: '28', unit: 'g', meltingPoint: -210 },
   { formula: 'O₂', value: '32', unit: 'g', meltingPoint: -218 },
   { formula: 'CO₂', value: '44', unit: 'g', meltingPoint: -57 },
-  { formula: 'NaCl', value: '58.5', unit: 'g', meltingPoint: 801 },
-  { formula: 'CaO', value: '56', unit: 'g', meltingPoint: 2613 },
   
-  // モル数での比較用
-  { formula: 'H₂O', value: '0.5', unit: 'mol', meltingPoint: 0 },
-  { formula: 'CO₂', value: '1.2', unit: 'mol', meltingPoint: -57 },
-  { formula: 'NaCl', value: '0.3', unit: 'mol', meltingPoint: 801 },
-  { formula: 'O₂', value: '2.5', unit: 'mol', meltingPoint: -218 },
-  { formula: 'CH₄', value: '1.8', unit: 'mol', meltingPoint: -182 },
-  { formula: 'NH₃', value: '3.0', unit: 'mol', meltingPoint: -78 },
-  { formula: 'CaO', value: '0.8', unit: 'mol', meltingPoint: 2613 },
-  { formula: 'MgO', value: '1.5', unit: 'mol', meltingPoint: 2852 },
-  
-  // 体積での比較用（標準状態）
-  { formula: 'H₂', value: '11.2', unit: 'L', meltingPoint: -259 },
-  { formula: 'CO₂', value: '22.4', unit: 'L', meltingPoint: -57 },
-  { formula: 'NH₃', value: '44.8', unit: 'L', meltingPoint: -78 },
-  { formula: 'O₂', value: '67.2', unit: 'L', meltingPoint: -218 },
-  { formula: 'N₂', value: '89.6', unit: 'L', meltingPoint: -210 },
+  // 体積カード（L単位）
+  { formula: 'H₂', value: '44.8', unit: 'L', meltingPoint: -259 },
+  { formula: 'CO₂', value: '17.92', unit: 'L', meltingPoint: -57 },
+  { formula: 'NH₃', value: '56', unit: 'L', meltingPoint: -78 },
+  { formula: 'O₂', value: '26.88', unit: 'L', meltingPoint: -218 },
+  { formula: 'N₂', value: '22.4', unit: 'L', meltingPoint: -210 },
   { formula: 'CH₄', value: '33.6', unit: 'L', meltingPoint: -182 }
 ]
 
-// お題のリスト
+// お題のリスト（修正版）
 export const TOPICS: Topic[] = [
   { 
-    text: '分子量が最も小さいもの', 
+    text: '最も質量の小さいもの', 
     judge: (cards) => {
-      const gCards = cards.filter(c => c.unit === 'g')
-      if (gCards.length === 0) return -1
-      return Math.min(...gCards.map(c => parseFloat(c.value)))
+      const masses = cards.map(c => {
+        // mol数から質量を計算
+        const molecularWeights: Record<string, number> = {
+          'H₂': 2, 'He': 4, 'CH₄': 16, 'H₂O': 18, 'NH₃': 17, 'N₂': 28, 'O₂': 32, 'CO₂': 44
+        }
+        const mw = molecularWeights[c.formula] || 1
+        if (c.unit === 'mol') return parseFloat(c.value) * mw
+        if (c.unit === 'g') return parseFloat(c.value)
+        return parseFloat(c.value)
+      })
+      return Math.min(...masses)
     },
     isReverse: true
   },
   { 
-    text: '分子量が最も大きいもの', 
+    text: '最も質量の大きいもの', 
     judge: (cards) => {
-      const gCards = cards.filter(c => c.unit === 'g')
-      if (gCards.length === 0) return -1
-      return Math.max(...gCards.map(c => parseFloat(c.value)))
+      const masses = cards.map(c => {
+        const molecularWeights: Record<string, number> = {
+          'H₂': 2, 'He': 4, 'CH₄': 16, 'H₂O': 18, 'NH₃': 17, 'N₂': 28, 'O₂': 32, 'CO₂': 44
+        }
+        const mw = molecularWeights[c.formula] || 1
+        if (c.unit === 'mol') return parseFloat(c.value) * mw
+        if (c.unit === 'g') return parseFloat(c.value)
+        return parseFloat(c.value)
+      })
+      return Math.max(...masses)
     }
   },
   { 
-    text: 'mol数が最も小さいもの', 
+    text: '最もmol数の小さいもの', 
     judge: (cards) => {
-      const molCards = cards.filter(c => c.unit === 'mol')
-      if (molCards.length === 0) return -1
-      return Math.min(...molCards.map(c => parseFloat(c.value)))
+      const mols = cards.map(c => {
+        const molecularWeights: Record<string, number> = {
+          'H₂': 2, 'He': 4, 'CH₄': 16, 'H₂O': 18, 'NH₃': 17, 'N₂': 28, 'O₂': 32, 'CO₂': 44
+        }
+        const mw = molecularWeights[c.formula] || 1
+        if (c.unit === 'mol') return parseFloat(c.value)
+        if (c.unit === 'g') return parseFloat(c.value) / mw
+        if (c.unit === 'L') return parseFloat(c.value) / 22.4
+        return parseFloat(c.value)
+      })
+      return Math.min(...mols)
     },
     isReverse: true
   },
   { 
-    text: 'mol数が最も大きいもの', 
+    text: '最もmol数の大きいもの', 
     judge: (cards) => {
-      const molCards = cards.filter(c => c.unit === 'mol')
-      if (molCards.length === 0) return -1
-      return Math.max(...molCards.map(c => parseFloat(c.value)))
+      const mols = cards.map(c => {
+        const molecularWeights: Record<string, number> = {
+          'H₂': 2, 'He': 4, 'CH₄': 16, 'H₂O': 18, 'NH₃': 17, 'N₂': 28, 'O₂': 32, 'CO₂': 44
+        }
+        const mw = molecularWeights[c.formula] || 1
+        if (c.unit === 'mol') return parseFloat(c.value)
+        if (c.unit === 'g') return parseFloat(c.value) / mw
+        if (c.unit === 'L') return parseFloat(c.value) / 22.4
+        return parseFloat(c.value)
+      })
+      return Math.max(...mols)
     }
   },
   { 
-    text: '体積(L)が最も小さいもの', 
+    text: '最も体積の小さいもの', 
     judge: (cards) => {
-      const lCards = cards.filter(c => c.unit === 'L')
-      if (lCards.length === 0) return -1
-      return Math.min(...lCards.map(c => parseFloat(c.value)))
+      const volumes = cards.map(c => {
+        const molecularWeights: Record<string, number> = {
+          'H₂': 2, 'He': 4, 'CH₄': 16, 'H₂O': 18, 'NH₃': 17, 'N₂': 28, 'O₂': 32, 'CO₂': 44
+        }
+        const mw = molecularWeights[c.formula] || 1
+        if (c.unit === 'L') return parseFloat(c.value)
+        if (c.unit === 'mol') return parseFloat(c.value) * 22.4
+        if (c.unit === 'g') return (parseFloat(c.value) / mw) * 22.4
+        return parseFloat(c.value)
+      })
+      return Math.min(...volumes)
     },
     isReverse: true
   },
   { 
-    text: '体積(L)が最も大きいもの', 
+    text: '最も体積の大きいもの', 
     judge: (cards) => {
-      const lCards = cards.filter(c => c.unit === 'L')
-      if (lCards.length === 0) return -1
-      return Math.max(...lCards.map(c => parseFloat(c.value)))
+      const volumes = cards.map(c => {
+        const molecularWeights: Record<string, number> = {
+          'H₂': 2, 'He': 4, 'CH₄': 16, 'H₂O': 18, 'NH₃': 17, 'N₂': 28, 'O₂': 32, 'CO₂': 44
+        }
+        const mw = molecularWeights[c.formula] || 1
+        if (c.unit === 'L') return parseFloat(c.value)
+        if (c.unit === 'mol') return parseFloat(c.value) * 22.4
+        if (c.unit === 'g') return (parseFloat(c.value) / mw) * 22.4
+        return parseFloat(c.value)
+      })
+      return Math.max(...volumes)
     }
   },
   { 
-    text: '融点が最も低いもの', 
+    text: '最も融点の低いもの', 
     judge: (cards) => Math.min(...cards.map(c => c.meltingPoint)),
     isReverse: true
   },
   { 
-    text: '融点が最も高いもの', 
+    text: '最も融点の高いもの', 
     judge: (cards) => Math.max(...cards.map(c => c.meltingPoint))
   }
 ]

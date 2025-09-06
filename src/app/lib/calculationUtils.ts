@@ -1,4 +1,4 @@
-// src/app/lib/calculationUtils.ts (改善版 - より柔軟な計算)
+// src/app/lib/calculationUtils.ts (修正版 - 正確な値計算)
 import { ChemicalCard } from '../types/game'
 
 // 分子量データベース（一般的な化合物）
@@ -49,12 +49,12 @@ export const convertCardValue = (card: ChemicalCard, targetUnit: 'g' | 'mol' | '
   
   // 変換不可能な場合でも、元の値を返して比較できるようにする
   console.warn(`変換不可: ${card.formula} ${card.value}${card.unit} → ${targetUnit}`)
-  return currentValue // -1ではなく元の値を返す
+  return currentValue
 }
 
 // お題に応じたカードの比較値を計算（改善版）
 export const calculateComparisonValue = (card: ChemicalCard, topicText: string): number => {
-  if (topicText.includes('分子量')) {
+  if (topicText.includes('分子量') || topicText.includes('質量')) {
     if (topicText.includes('小さい')) {
       const value = convertCardValue(card, 'g')
       return 1000 - value // 小さいほど高スコア
@@ -227,63 +227,94 @@ export const getDetailedCalculation = (card: ChemicalCard, topicText: string): s
   return calculation
 }
 
-// バトルフィールド専用：カードの値を比較用数値として取得
+// バトルフィールド専用：カードの値を比較用数値として取得（簡潔版）
 export const getCardComparisonValue = (card: ChemicalCard, topicText: string): number => {
-  if (topicText.includes('分子量')) {
-    return convertCardValue(card, 'g')
-  }
+  console.log(`計算開始: ${card.formula} ${card.value}${card.unit} - お題: ${topicText}`)
   
-  if (topicText.includes('mol数')) {
-    return convertCardValue(card, 'mol')
-  }
+  const molecularWeight = MOLECULAR_WEIGHTS[card.formula] || 1
+  const value = parseFloat(card.value)
   
-  if (topicText.includes('体積')) {
-    return convertCardValue(card, 'L')
-  }
-  
-  if (topicText.includes('融点')) {
-    return card.meltingPoint
-  }
-  
-  return parseFloat(card.value) // フォールバック
-}
-
-// バトルフィールド専用：表示用の値文字列を取得
-export const getCardDisplayValue = (card: ChemicalCard, topicText: string): string => {
-  const value = getCardComparisonValue(card, topicText)
-  const molecularWeight = MOLECULAR_WEIGHTS[card.formula]
-  
-  if (topicText.includes('分子量')) {
+  if (topicText.includes('質量') || topicText.includes('分子量')) {
     if (card.unit === 'g') {
-      return `${value}g/mol`
-    } else if (molecularWeight) {
-      return `${value}g/mol (計算値)`
-    } else {
-      return `計算困難`
+      console.log(`分子量計算: ${value}g`)
+      return value
+    }
+    if (card.unit === 'mol') {
+      const result = value * molecularWeight
+      console.log(`質量計算: ${value}mol × ${molecularWeight}g/mol = ${result}g`)
+      return result
+    }
+    if (card.unit === 'L') {
+      const mols = value / 22.4
+      const result = mols * molecularWeight
+      console.log(`体積→質量計算: ${value}L → ${mols.toFixed(2)}mol → ${result.toFixed(2)}g`)
+      return result
     }
   }
   
   if (topicText.includes('mol数')) {
     if (card.unit === 'mol') {
-      return `${value}mol`
-    } else {
-      return `${value.toFixed(2)}mol (計算値)`
+      console.log(`mol数計算: ${value}mol`)
+      return value
+    }
+    if (card.unit === 'g') {
+      const result = value / molecularWeight
+      console.log(`質量→mol計算: ${value}g ÷ ${molecularWeight}g/mol = ${result.toFixed(2)}mol`)
+      return result
+    }
+    if (card.unit === 'L') {
+      const result = value / 22.4
+      console.log(`体積→mol計算: ${value}L ÷ 22.4L/mol = ${result.toFixed(2)}mol`)
+      return result
     }
   }
   
   if (topicText.includes('体積')) {
     if (card.unit === 'L') {
-      return `${value}L`
-    } else if (molecularWeight || card.unit === 'mol') {
-      return `${value.toFixed(1)}L (計算値)`
-    } else {
-      return `計算困難`
+      console.log(`体積計算: ${value}L`)
+      return value
     }
+    if (card.unit === 'mol') {
+      const result = value * 22.4
+      console.log(`mol→体積計算: ${value}mol × 22.4L/mol = ${result}L`)
+      return result
+    }
+    if (card.unit === 'g') {
+      const mols = value / molecularWeight
+      const result = mols * 22.4
+      console.log(`質量→体積計算: ${value}g → ${mols.toFixed(2)}mol → ${result.toFixed(2)}L`)
+      return result
+    }
+  }
+  
+  if (topicText.includes('融点')) {
+    console.log(`融点: ${card.meltingPoint}℃`)
+    return card.meltingPoint
+  }
+  
+  console.log(`フォールバック値: ${value}`)
+  return value
+}
+
+// バトルフィールド専用：表示用の値文字列を取得（簡潔版）
+export const getCardDisplayValue = (card: ChemicalCard, topicText: string): string => {
+  const value = getCardComparisonValue(card, topicText)
+  
+  if (topicText.includes('質量') || topicText.includes('分子量')) {
+    return `${value.toFixed(1)}g`
+  }
+  
+  if (topicText.includes('mol数')) {
+    return `${value.toFixed(2)}mol`
+  }
+  
+  if (topicText.includes('体積')) {
+    return `${value.toFixed(1)}L`
   }
   
   if (topicText.includes('融点')) {
     return `${value}℃`
   }
   
-  return card.value + card.unit
+  return `${value}${card.unit}`
 }
