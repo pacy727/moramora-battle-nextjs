@@ -3,6 +3,12 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ChemicalCard, GameState, Topic, JudgeResult, FinalResult } from '../types/game'
 import { CHEMICAL_CARDS, TOPICS, GAME_CONFIG } from './gameData'
+import { 
+  calculateCardSuitability, 
+  determineWinner, 
+  generateBattleExplanation,
+  getCardDisplayValue 
+} from './calculationUtils'
 
 // ユーティリティ関数
 const shuffleArray = <T>(array: T[]): T[] => {
@@ -12,106 +18,6 @@ const shuffleArray = <T>(array: T[]): T[] => {
     ;[newArray[i], newArray[j]] = [newArray[j], newArray[i]]
   }
   return newArray
-}
-
-const evaluateCard = (card: ChemicalCard, topic: Topic | null): number => {
-  if (!topic) return Math.random() * 100
-
-  switch (topic.text) {
-    case '分子量が最も小さいもの':
-      if (card.unit !== 'g') return 0
-      return 1000 - parseFloat(card.value)
-    case '分子量が最も大きいもの':
-      if (card.unit !== 'g') return 0
-      return parseFloat(card.value)
-    case 'mol数が最も小さいもの':
-      if (card.unit !== 'mol') return 0
-      return 1000 - parseFloat(card.value)
-    case 'mol数が最も大きいもの':
-      if (card.unit !== 'mol') return 0
-      return parseFloat(card.value)
-    case '体積(L)が最も小さいもの':
-      if (card.unit !== 'L') return 0
-      return 1000 - parseFloat(card.value)
-    case '体積(L)が最も大きいもの':
-      if (card.unit !== 'L') return 0
-      return parseFloat(card.value)
-    case '融点が最も低いもの':
-      return 3000 - card.meltingPoint
-    case '融点が最も高いもの':
-      return card.meltingPoint + 3000
-    default:
-      return Math.random() * 100
-  }
-}
-
-const getJudgeExplanation = (playerCard: ChemicalCard, computerCard: ChemicalCard, topic: Topic): string => {
-  const topicText = topic.text
-  let explanation = ''
-
-  switch (topicText) {
-    case '分子量が最も小さいもの':
-    case '分子量が最も大きいもの':
-      if (playerCard.unit === 'g' && computerCard.unit === 'g') {
-        const playerMW = parseFloat(playerCard.value)
-        const computerMW = parseFloat(computerCard.value)
-        explanation = `あなた: ${playerCard.formula} (分子量 ${playerMW})\nコンピューター: ${computerCard.formula} (分子量 ${computerMW})`
-        if (topicText.includes('小さい')) {
-          explanation += `\n→ ${playerMW < computerMW ? playerCard.formula : computerCard.formula} の方が小さい`
-        } else {
-          explanation += `\n→ ${playerMW > computerMW ? playerCard.formula : computerCard.formula} の方が大きい`
-        }
-      } else {
-        explanation = `お題は分子量ですが、片方または両方のカードがg単位ではありません`
-      }
-      break
-
-    case 'mol数が最も小さいもの':
-    case 'mol数が最も大きいもの':
-      if (playerCard.unit === 'mol' && computerCard.unit === 'mol') {
-        const playerMol = parseFloat(playerCard.value)
-        const computerMol = parseFloat(computerCard.value)
-        explanation = `あなた: ${playerCard.formula} (${playerMol} mol)\nコンピューター: ${computerCard.formula} (${computerMol} mol)`
-        if (topicText.includes('小さい')) {
-          explanation += `\n→ ${playerMol < computerMol ? playerCard.formula : computerCard.formula} の方が少ない`
-        } else {
-          explanation += `\n→ ${playerMol > computerMol ? playerCard.formula : computerCard.formula} の方が多い`
-        }
-      } else {
-        explanation = `お題はmol数ですが、片方または両方のカードがmol単位ではありません`
-      }
-      break
-
-    case '体積(L)が最も小さいもの':
-    case '体積(L)が最も大きいもの':
-      if (playerCard.unit === 'L' && computerCard.unit === 'L') {
-        const playerVol = parseFloat(playerCard.value)
-        const computerVol = parseFloat(computerCard.value)
-        explanation = `あなた: ${playerCard.formula} (${playerVol} L)\nコンピューター: ${computerCard.formula} (${computerVol} L)`
-        if (topicText.includes('小さい')) {
-          explanation += `\n→ ${playerVol < computerVol ? playerCard.formula : computerCard.formula} の方が体積が小さい`
-        } else {
-          explanation += `\n→ ${playerVol > computerVol ? playerCard.formula : computerCard.formula} の方が体積が大きい`
-        }
-      } else {
-        explanation = `お題は体積ですが、片方または両方のカードがL単位ではありません`
-      }
-      break
-
-    case '融点が最も低いもの':
-    case '融点が最も高いもの':
-      const playerMP = playerCard.meltingPoint
-      const computerMP = computerCard.meltingPoint
-      explanation = `あなた: ${playerCard.formula} (融点 ${playerMP}℃)\nコンピューター: ${computerCard.formula} (融点 ${computerMP}℃)`
-      if (topicText.includes('低い')) {
-        explanation += `\n→ ${playerMP < computerMP ? playerCard.formula : computerCard.formula} の方が融点が低い`
-      } else {
-        explanation += `\n→ ${playerMP > computerMP ? playerCard.formula : computerCard.formula} の方が融点が高い`
-      }
-      break
-  }
-
-  return explanation
 }
 
 export const useGame = () => {
@@ -146,7 +52,7 @@ export const useGame = () => {
     return topic
   }, [])
 
-  // コンピューターのカード選択
+  // コンピューターのカード選択（新しい計算システムを使用）
   const computerSelectCard = useCallback((currentTopic: Topic | null, computerHand: ChemicalCard[]) => {
     if (!currentTopic) {
       return computerHand[0] || null
@@ -156,14 +62,14 @@ export const useGame = () => {
     let bestScore = -1
 
     computerHand.forEach((card, index) => {
-      const score = evaluateCard(card, currentTopic)
+      const score = calculateCardSuitability(card, currentTopic.text)
       if (score > bestScore) {
         bestScore = score
         bestCardIndex = index
       }
     })
 
-    // ランダム性を追加
+    // ランダム性を追加（AIの難易度調整）
     if (Math.random() < GAME_CONFIG.AI_RANDOMNESS) {
       bestCardIndex = Math.floor(Math.random() * computerHand.length)
     }
@@ -194,26 +100,27 @@ export const useGame = () => {
     setTimerInterval(newInterval)
   }, [timerInterval])
 
-  // ラウンド判定
+  // ラウンド判定（新しい計算システムを使用）
   const judgeRound = useCallback((playerCard: ChemicalCard, computerCard: ChemicalCard, topic: Topic): JudgeResult => {
-    const playerScore = evaluateCard(playerCard, topic)
-    const computerScore = evaluateCard(computerCard, topic)
-    const explanation = getJudgeExplanation(playerCard, computerCard, topic)
+    const winner = determineWinner(playerCard, computerCard, topic.text)
+    const explanation = generateBattleExplanation(playerCard, computerCard, topic.text)
 
-    let winner: 'player' | 'computer' | 'tie' = 'tie'
-    if (playerScore > computerScore) {
-      winner = 'player'
+    // スコア更新
+    if (winner === 'player') {
       setGameState(prev => ({ ...prev, playerScore: prev.playerScore + 1 }))
-    } else if (computerScore > playerScore) {
-      winner = 'computer'
+    } else if (winner === 'computer') {
       setGameState(prev => ({ ...prev, computerScore: prev.computerScore + 1 }))
     }
 
     // 使用したカードを手札から除去
     setGameState(prev => ({
       ...prev,
-      playerHand: prev.playerHand.filter(card => card !== playerCard),
-      computerHand: prev.computerHand.filter(card => card !== computerCard),
+      playerHand: prev.playerHand.filter(card => 
+        !(card.formula === playerCard.formula && card.value === playerCard.value && card.unit === playerCard.unit)
+      ),
+      computerHand: prev.computerHand.filter(card => 
+        !(card.formula === computerCard.formula && card.value === computerCard.value && card.unit === computerCard.unit)
+      ),
       playerSelectedCard: null,
       computerSelectedCard: null
     }))
@@ -293,10 +200,10 @@ export const useGame = () => {
 
   // 新しいラウンド開始
   const startNewRound = useCallback(() => {
-    if (gameState.gamePhase === 'finished') return
+    if (gameState.gamePhase === 'finished') return null
     if (gameState.playerHand.length === 0 || gameState.computerHand.length === 0) {
       setGameState(prev => ({ ...prev, gamePhase: 'finished' }))
-      return
+      return null
     }
 
     const topic = selectRandomTopic()
@@ -304,7 +211,8 @@ export const useGame = () => {
       ...prev, 
       gamePhase: 'thinking',
       playerSelectedCard: null,
-      computerSelectedCard: null 
+      computerSelectedCard: null,
+      timeLeft: GAME_CONFIG.ROUND_TIME
     }))
 
     return topic
