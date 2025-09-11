@@ -1,4 +1,4 @@
-// src/app/components/BattlefieldGameScreen.tsx (修正版 - 関数定義エラー解決)
+// src/app/components/BattlefieldGameScreen.tsx (修正版 - UI改善)
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -362,7 +362,7 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
         </div>
 
         {/* CPU手札エリア */}
-        <div className="h-24 bg-red-900/20 backdrop-blur-sm border-b border-red-500/30 flex items-center justify-center">
+        <div className="h-28 bg-red-900/20 backdrop-blur-sm border-b border-red-500/30 flex items-center justify-center p-2">
           <div className="flex gap-2">
             {gameState.computerHand.slice(0, 6).map((card, index) => (
               <EnhancedCard 
@@ -513,12 +513,12 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
           </div>
         </div>
 
-        {/* プレイヤーの手札エリア */}
-        <div className="h-32 bg-blue-900/20 backdrop-blur-sm border-t border-blue-500/30 flex flex-col items-center justify-center">
-          <div className="text-blue-300 text-sm mb-2">あなたの手札</div>
-          <div className="flex gap-2 overflow-x-auto px-4">
+        {/* プレイヤーの手札エリア - 拡大版 */}
+        <div className="h-56 bg-blue-900/20 backdrop-blur-sm border-t border-blue-500/30 flex flex-col items-center justify-center p-4">
+          <div className="text-blue-300 text-sm mb-3 font-semibold">あなたの手札</div>
+          <div className="flex gap-3 overflow-x-auto px-2 py-6 w-full justify-center min-h-0 max-w-full">
             {gameState.playerHand.map((card, index) => (
-              <div key={`${card.formula}-${card.unit}-${index}`} className="relative">
+              <div key={`${card.formula}-${card.unit}-${index}`} className="relative flex-shrink-0">
                 <EnhancedCard
                   card={card}
                   isSelected={selectedCardIndex === index}
@@ -529,7 +529,7 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
                 />
                 
                 {battlePhase === 'card-selection' && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+                  <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-green-400 animate-pulse border-2 border-white" />
                 )}
               </div>
             ))}
