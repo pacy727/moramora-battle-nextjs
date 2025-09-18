@@ -287,16 +287,6 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
     }
   }
 
-  // ゲームリセット
-  const handleResetGame = () => {
-    setBattlePhase('waiting')
-    setSelectedCardIndex(null)
-    setBattleResult(null)
-    setTopicDisplay('')
-    setShowConfetti(false)
-    resetGame()
-  }
-
   // ゲーム終了時のエフェクト
   useEffect(() => {
     if (gameState.gamePhase === 'finished') {
@@ -382,19 +372,28 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
           
           {/* お題表示 */}
           {battlePhase === 'topic-reveal' && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-black/50 backdrop-blur-md rounded-2xl p-8 text-center animate-zoom-in">
-                <h2 className="text-3xl font-bold text-white mb-4">お題</h2>
-                <div className="text-4xl font-bold text-yellow-300 animate-pulse">
+            <div className="absolute inset-0 flex items-center justify-center z-30">
+              <div className="bg-white backdrop-blur-md rounded-2xl p-8 text-center animate-zoom-in shadow-2xl border border-gray-200">
+                <h2 className="text-3xl font-bold text-gray-800 mb-4">お題</h2>
+                <div className="text-4xl font-bold text-purple-600 animate-pulse">
                   {topicDisplay}
                 </div>
               </div>
             </div>
           )}
 
+          {/* お題表示（常時表示） */}
+          {gameState.currentTopic && battlePhase !== 'topic-reveal' && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+              <div className="bg-white/20 backdrop-blur-md rounded-lg px-6 py-3 text-white font-bold text-lg border border-white/30">
+                お題: {gameState.currentTopic.text}
+              </div>
+            </div>
+          )}
+
           {/* タイマー表示 */}
           {battlePhase === 'timer-countdown' && (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center z-25">
               <div className={`text-8xl font-bold transition-all duration-300 ${
                 gameState.timeLeft <= 3 
                   ? 'text-red-400 animate-pulse scale-125' 
@@ -407,33 +406,38 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
             </div>
           )}
 
-          {/* カード選択中の指示 */}
-          {battlePhase === 'card-selection' && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
-              <div className="bg-white/10 backdrop-blur-md rounded-lg px-6 py-3 text-white font-semibold animate-pulse">
-                カードを選択してください ({gameState.timeLeft}秒)
-                <div className="text-xs mt-1 text-yellow-300">
-                  どのカードでも選択可能です！mol計算で頑張りましょう
-                </div>
+          {/* カード選択中のタイマー表示 */}
+          {battlePhase === 'card-selection' && gameState.timeLeft > 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-25">
+              <div className={`text-8xl font-bold transition-all duration-300 ${
+                gameState.timeLeft <= 3 
+                  ? 'text-red-400 animate-pulse scale-125' 
+                  : gameState.timeLeft <= 5 
+                    ? 'text-yellow-300 animate-heartbeat' 
+                    : 'text-green-300'
+              }`}>
+                {gameState.timeLeft}
               </div>
             </div>
           )}
 
-          {/* バトルエリア中央 */}
-          <div className="absolute inset-0 flex items-center justify-center">
+          {/* バトルエリア中央 - 固定レイアウト */}
+          <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="flex items-center gap-16">
-              {/* CPUのカード */}
-              <div className="text-center relative">
-                <div className="text-red-300 text-sm mb-2">CPU</div>
+              {/* CPUのカード - 固定位置 */}
+              <div className="flex flex-col items-center justify-center h-48 w-24 relative">
                 {shouldShowComputerCard() ? (
                   <>
-                    <EnhancedCard 
-                      card={battleResult!.computerCard} 
-                      size="large"
-                      isPlayed={true}
-                      isCorrect={shouldShowCardEffects() && battleResult!.winner === 'computer' ? true : null}
-                      isWrong={shouldShowCardEffects() && battleResult!.winner === 'player' ? true : null}
-                    />
+                    <div className="flex items-center justify-center flex-1">
+                      <EnhancedCard 
+                        card={battleResult!.computerCard} 
+                        size="large"
+                        isPlayed={true}
+                        isCorrect={shouldShowCardEffects() && battleResult!.winner === 'computer' ? true : null}
+                        isWrong={shouldShowCardEffects() && battleResult!.winner === 'player' ? true : null}
+                      />
+                    </div>
+                    <div className="text-red-300 text-sm mt-2">CPU</div>
                     {/* CPU側の数値表示 */}
                     {shouldShowComputerNumber() && (
                       <div className="absolute left-[-120px] top-1/2 transform -translate-y-1/2 bg-red-500 backdrop-blur-md rounded-lg p-3 text-center border-2 border-white z-50 animate-fade-in-up">
@@ -457,36 +461,27 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
                 )}
               </div>
 
-              {/* VS表示 */}
-              <div className="text-center">
-                <div className="text-6xl font-bold text-white/50 animate-pulse">VS</div>
-                {shouldShowJudgeResult() && (
-                  <div className="mt-4 text-lg font-bold animate-bounce-in">
-                    {battleResult!.winner === 'player' && (
-                      <span className="text-green-400">プレイヤー勝利！</span>
-                    )}
-                    {battleResult!.winner === 'computer' && (
-                      <span className="text-red-400">CPU勝利！</span>
-                    )}
-                    {battleResult!.winner === 'tie' && (
-                      <span className="text-yellow-400">引き分け！</span>
-                    )}
-                  </div>
+              {/* VS表示 - カウントダウン中は非表示 */}
+              <div className="text-center w-20">
+                {battlePhase !== 'timer-countdown' && battlePhase !== 'card-selection' && (
+                  <div className="text-6xl font-bold text-white/50 animate-pulse">VS</div>
                 )}
               </div>
 
-              {/* プレイヤーのカード */}
-              <div className="text-center relative">
-                <div className="text-blue-300 text-sm mb-2">あなた</div>
+              {/* プレイヤーのカード - 固定位置 */}
+              <div className="flex flex-col items-center justify-center h-48 w-24 relative">
                 {shouldShowPlayerCard() ? (
                   <>
-                    <EnhancedCard 
-                      card={battleResult!.playerCard} 
-                      size="large"
-                      isPlayed={true}
-                      isCorrect={shouldShowCardEffects() && battleResult!.winner === 'player' ? true : null}
-                      isWrong={shouldShowCardEffects() && battleResult!.winner === 'computer' ? true : null}
-                    />
+                    <div className="flex items-center justify-center flex-1">
+                      <EnhancedCard 
+                        card={battleResult!.playerCard} 
+                        size="large"
+                        isPlayed={true}
+                        isCorrect={shouldShowCardEffects() && battleResult!.winner === 'player' ? true : null}
+                        isWrong={shouldShowCardEffects() && battleResult!.winner === 'computer' ? true : null}
+                      />
+                    </div>
+                    <div className="text-blue-300 text-sm mt-2">あなた</div>
                     {/* プレイヤー側の数値表示 */}
                     {shouldShowPlayerNumber() && (
                       <div className="absolute right-[-120px] top-1/2 transform -translate-y-1/2 bg-blue-500 backdrop-blur-md rounded-lg p-3 text-center border-2 border-white z-50 animate-fade-in-up">
@@ -511,10 +506,59 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
               </div>
             </div>
           </div>
+
+          {/* 勝敗メッセージ - 完全に独立したレイヤー */}
+          {shouldShowJudgeResult() && (
+            <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+              <div className="bg-black/80 backdrop-blur-md rounded-xl px-8 py-4 border-2 border-white/30 shadow-2xl">
+                <div className="text-3xl font-bold animate-bounce-in text-center">
+                  {battleResult!.winner === 'player' && (
+                    <span className="text-green-400">🎉 プレイヤー勝利！ 🎉</span>
+                  )}
+                  {battleResult!.winner === 'computer' && (
+                    <span className="text-red-400">💻 CPU勝利！ 💻</span>
+                  )}
+                  {battleResult!.winner === 'tie' && (
+                    <span className="text-yellow-400">🤝 引き分け！ 🤝</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* プレイヤーの手札エリア - 拡大版 */}
-        <div className="h-56 bg-blue-900/20 backdrop-blur-sm border-t border-blue-500/30 flex flex-col items-center justify-center p-4">
+        <div className="h-56 bg-blue-900/20 backdrop-blur-sm border-t border-blue-500/30 flex flex-col items-center justify-center p-4 relative">
+          {/* ゲーム開始ボタン */}
+          {battlePhase === 'waiting' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-blue-900/80 backdrop-blur-md z-20">
+              <button
+                onClick={handleStartNewRound}
+                className="bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 hover:from-purple-600 hover:via-blue-600 hover:to-cyan-600 text-white font-bold py-6 px-12 rounded-2xl text-2xl transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 hover:-translate-y-2 hover:scale-110 animate-pulse-glow relative overflow-hidden group"
+              >
+                <span className="relative z-10 flex items-center gap-3">
+                  🚀 <span>ゲーム開始</span> 🚀
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+              </button>
+            </div>
+          )}
+
+          {/* 次のラウンドボタン */}
+          {battlePhase === 'round-end' && gameState.gamePhase !== 'finished' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-blue-900/80 backdrop-blur-md z-20">
+              <button
+                onClick={handleStartNewRound}
+                className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold py-6 px-12 rounded-2xl text-2xl transition-all duration-300 shadow-2xl hover:shadow-green-500/50 hover:-translate-y-2 hover:scale-110 animate-bounce-in relative overflow-hidden group"
+              >
+                <span className="relative z-10 flex items-center gap-3">
+                  ⚡ <span>次のラウンド</span> ⚡
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+              </button>
+            </div>
+          )}
+
           <div className="text-blue-300 text-sm mb-3 font-semibold">あなたの手札</div>
           <div className="flex gap-3 overflow-x-auto px-2 py-6 w-full justify-center min-h-0 max-w-full">
             {gameState.playerHand.map((card, index) => (
@@ -538,30 +582,7 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
 
         {/* コントロールボタン */}
         <div className="p-4 bg-black/20 backdrop-blur-sm text-center">
-          {battlePhase === 'waiting' && (
-            <button
-              onClick={handleStartNewRound}
-              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-3 px-8 rounded-full text-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 animate-pulse-glow"
-            >
-              ゲーム開始
-            </button>
-          )}
-          
-          {battlePhase === 'round-end' && gameState.gamePhase !== 'finished' && (
-            <button
-              onClick={handleStartNewRound}
-              className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3 px-8 rounded-full text-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 animate-bounce-in"
-            >
-              次のラウンド
-            </button>
-          )}
-
-          <button
-            onClick={handleResetGame}
-            className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-2 px-4 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 ml-4"
-          >
-            リセット
-          </button>
+          {/* 空のスペース - ボタンは手札エリアに移動 */}
         </div>
       </div>
 
@@ -576,12 +597,6 @@ export default function BattlefieldGameScreen({ onBackToTitle }: BattlefieldGame
               dangerouslySetInnerHTML={{ __html: finalResult.message }}
             />
             <div className="space-x-4">
-              <button
-                onClick={handleResetGame}
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1"
-              >
-                もう一度
-              </button>
               <button
                 onClick={onBackToTitle}
                 className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-3 px-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1"
