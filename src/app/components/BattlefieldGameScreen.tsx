@@ -1,14 +1,13 @@
-// src/app/components/BattlefieldGameScreen.tsx (デバッグ版)
+// src/app/components/BattlefieldGameScreen.tsx (完全版 - バトルロード対応)
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useGame } from '../lib/useGame'
 import { ChemicalCard } from '../types/game'
 import { EnhancedCard } from './Card/EnhancedCard'
 import { GameHeader } from './Game/GameHeader'
 import { HandDisplay } from './Game/HandDisplay'
 import { BattleArena } from './Game/BattleArena'
-import { GameEndModal } from './Game/GameEndModal'
 import { 
   Confetti, 
   ScoreUpAnimation,
@@ -20,7 +19,7 @@ import {
 
 interface BattlefieldGameScreenProps {
   onBackToTitle: () => void
-  onRestart: () => void // 新しいpropを追加
+  onGameEnd: (result: 'victory' | 'defeat') => void
   initialPlayerHand: ChemicalCard[]
 }
 
@@ -44,7 +43,7 @@ interface BattleResult {
   computerValue: number
 }
 
-export default function BattlefieldGameScreen({ onBackToTitle, onRestart, initialPlayerHand }: BattlefieldGameScreenProps) {
+export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initialPlayerHand }: BattlefieldGameScreenProps) {
   const gameHook = useGame()
   
   // デバッグ: useGameの返り値を確認
@@ -240,21 +239,26 @@ export default function BattlefieldGameScreen({ onBackToTitle, onRestart, initia
     }
   }
 
-  // ゲーム終了時のエフェクト
+  // ゲーム終了処理を安定化
+  const handleGameFinish = useCallback((result: 'victory' | 'defeat') => {
+    const timeoutId = setTimeout(() => {
+      onGameEnd(result)
+    }, 2000)
+    return () => clearTimeout(timeoutId)
+  }, [onGameEnd])
+
+  // ゲーム終了時のエフェクト（バトルロード対応）
   useEffect(() => {
     if (gameState.gamePhase === 'finished') {
       const finalResult = getFinalResult()
       if (finalResult?.winner === 'player') {
         setShowConfetti(true)
+        return handleGameFinish('victory')
+      } else {
+        return handleGameFinish('defeat')
       }
     }
-  }, [gameState.gamePhase, getFinalResult])
-
-  // ゲーム再開処理 - シャッフル画面に戻る
-  const handleRestart = () => {
-    console.log('ゲーム再開 - シャッフル画面に戻ります')
-    onRestart() // 親コンポーネント（page.tsx）でシャッフル画面に遷移
-  }
+  }, [gameState.gamePhase, getFinalResult, handleGameFinish])
 
   const finalResult = gameState.gamePhase === 'finished' ? getFinalResult() : null
 
@@ -334,12 +338,24 @@ export default function BattlefieldGameScreen({ onBackToTitle, onRestart, initia
         </div>
       </div>
 
-      {/* ゲーム終了モーダル */}
-      <GameEndModal
-        finalResult={finalResult}
-        onRestart={handleRestart}
-        onBackToTitle={onBackToTitle}
-      />
+      {/* ゲーム終了画面（簡易版 - バトルロードに遷移するため） */}
+      {finalResult && (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 text-center shadow-2xl max-w-md animate-zoom-in relative overflow-hidden">
+            <h2 className="text-3xl font-bold text-white mb-6 animate-heartbeat">
+              {finalResult.winner === 'player' ? '🎉 勝利！' : '💻 敗北...'}
+            </h2>
+            <div 
+              className="text-xl mb-8 text-yellow-300 font-semibold"
+              dangerouslySetInnerHTML={{ __html: finalResult.message }}
+            />
+            <div className="text-white mb-4">
+              バトルロード画面に戻ります...
+            </div>
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
