@@ -16,6 +16,7 @@ interface EnhancedCardProps {
   disabled?: boolean
   size?: 'small' | 'medium' | 'large'
   showBack?: boolean
+  isShuffling?: boolean // 新しく追加
 }
 
 export const EnhancedCard = ({
@@ -29,7 +30,8 @@ export const EnhancedCard = ({
   onClick,
   disabled = false,
   size = 'medium',
-  showBack = false
+  showBack = false,
+  isShuffling = false // 新しく追加
 }: EnhancedCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false)
   const [showSparkles, setShowSparkles] = useState(false)
@@ -74,12 +76,14 @@ export const EnhancedCard = ({
       ${isSelected ? 'scale-110 -translate-y-3 z-20' : ''}
       ${isPlayed ? 'scale-125 z-30' : ''}
       ${disabled ? 'cursor-not-allowed opacity-50' : ''}
+      ${isShuffling ? 'card-shuffling' : ''} // シャッフル中の状態を追加
     `
 
     const effectClasses = `
       ${glowEffect ? 'animate-pulse-glow' : ''}
       ${isCorrect ? 'animate-correct-sparkle' : ''}
       ${isWrong ? 'animate-wrong-shake' : ''}
+      ${isShuffling ? 'card-shuffle card-shuffle-glow' : ''} // シャッフルアニメーションを追加
     `
 
     return `${baseClasses} ${interactionClasses} ${effectClasses}`
@@ -88,7 +92,10 @@ export const EnhancedCard = ({
   const getCardStyle = () => {
     let boxShadow = '0 4px 8px rgba(0,0,0,0.1)'
     
-    if (isSelected) {
+    if (isShuffling) {
+      // シャッフル中は特別なスタイル
+      boxShadow = '0 0 30px rgba(168, 85, 247, 0.8), 0 0 60px rgba(59, 130, 246, 0.6)'
+    } else if (isSelected) {
       boxShadow = '0 8px 25px rgba(239, 68, 68, 0.4), 0 0 0 2px #ef4444'
     } else if (isPlayed) {
       boxShadow = '0 12px 35px rgba(251, 191, 36, 0.6), 0 0 0 3px #fbbf24'
@@ -104,7 +111,7 @@ export const EnhancedCard = ({
   return (
     <div 
       className={getCardClasses()}
-      onClick={!disabled ? onClick : undefined}
+      onClick={!disabled && !isShuffling ? onClick : undefined} // シャッフル中はクリック無効
       style={getCardStyle()}
     >
       {/* スパークルエフェクト */}
@@ -121,6 +128,14 @@ export const EnhancedCard = ({
               }}
             />
           ))}
+        </div>
+      )}
+
+      {/* シャッフル中の特殊エフェクト */}
+      {isShuffling && (
+        <div className="absolute inset-0 pointer-events-none z-40">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 rounded-xl animate-pulse" />
+          <div className="absolute inset-1 border border-white/30 rounded-lg animate-pulse" />
         </div>
       )}
 
@@ -177,13 +192,18 @@ export const EnhancedCard = ({
       </div>
 
       {/* 選択時のリング効果 */}
-      {isSelected && (
+      {isSelected && !isShuffling && (
         <div className="absolute -inset-1 bg-gradient-to-r from-red-400 via-pink-400 to-red-400 rounded-xl blur-sm opacity-75 animate-spin-slow" />
       )}
 
       {/* プレイ時のオーラ効果 */}
-      {isPlayed && (
+      {isPlayed && !isShuffling && (
         <div className="absolute -inset-2 bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 rounded-xl blur-md opacity-50 animate-pulse" />
+      )}
+
+      {/* シャッフル中のオーラ効果 */}
+      {isShuffling && (
+        <div className="absolute -inset-3 bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 rounded-xl blur-lg opacity-40 animate-pulse" />
       )}
     </div>
   )

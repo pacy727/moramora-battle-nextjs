@@ -10,6 +10,11 @@ import {
   getCardDisplayValue 
 } from './calculationUtils'
 
+// 拡張されたゲーム状態
+interface EnhancedGameState extends GameState {
+  winStreak: number // 連勝数を追加
+}
+
 // ユーティリティ関数
 const shuffleArray = <T>(array: T[]): T[] => {
   const newArray = [...array]
@@ -20,8 +25,19 @@ const shuffleArray = <T>(array: T[]): T[] => {
   return newArray
 }
 
+// CPU難易度を計算（連勝数に応じて調整）
+const calculateCPURandomness = (winStreak: number): number => {
+  if (winStreak <= 5) return 0.30  // 1-5勝: 30%ランダム
+  if (winStreak <= 10) return 0.25 // 6-10勝: 25%ランダム  
+  if (winStreak <= 15) return 0.20 // 11-15勝: 20%ランダム
+  if (winStreak <= 20) return 0.15 // 16-20勝: 15%ランダム
+  if (winStreak <= 25) return 0.10 // 21-25勝: 10%ランダム
+  if (winStreak <= 30) return 0.05 // 26-30勝: 5%ランダム
+  return 0.00 // 31勝以上: 0%ランダム（完全最適解）
+}
+
 export const useGame = () => {
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState<EnhancedGameState>({
     playerScore: 0,
     computerScore: 0,
     playerHand: [],
@@ -30,12 +46,33 @@ export const useGame = () => {
     playerSelectedCard: null,
     computerSelectedCard: null,
     timeLeft: 0,
-    gamePhase: 'waiting'
+    gamePhase: 'waiting',
+    winStreak: 0 // 連勝数を初期化
   })
 
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null)
 
-  // カードを配る
+  // 手札を設定（シャッフル画面から受け取る）
+  const setPlayerHand = useCallback((hand: ChemicalCard[]) => {
+    // CPUの手札も同時に生成
+    const remainingCards = CHEMICAL_CARDS.filter(card => 
+      !hand.some(playerCard => 
+        playerCard.formula === card.formula && 
+        playerCard.value === card.value && 
+        playerCard.unit === card.unit
+      )
+    )
+    const shuffledCpuCards = shuffleArray(remainingCards)
+    
+    setGameState(prev => ({
+      ...prev,
+      playerHand: hand,
+      computerHand: shuffledCpuCards.slice(0, GAME_CONFIG.CARDS_PER_HAND),
+      gamePhase: 'thinking'
+    }))
+  }, [])
+
+  // カードを配る（従来の方法 - 後方互換性のため保持）
   const dealCards = useCallback(() => {
     const shuffledCards = shuffleArray(CHEMICAL_CARDS)
     setGameState(prev => ({
@@ -52,12 +89,21 @@ export const useGame = () => {
     return topic
   }, [])
 
-  // コンピューターのカード選択（新しい計算システムを使用）
-  const computerSelectCard = useCallback((currentTopic: Topic | null, computerHand: ChemicalCard[]) => {
+  // コンピューターのカード選択（難易度調整付き）
+  const computerSelectCard = useCallback((currentTopic: Topic | null, computerHand: ChemicalCard[], winStreak: number) => {
     if (!currentTopic) {
       return computerHand[0] || null
     }
 
+    const cpuRandomness = calculateCPURandomness(winStreak)
+    
+    // ランダム性を適用
+    if (Math.random() < cpuRandomness) {
+      const randomIndex = Math.floor(Math.random() * computerHand.length)
+      return computerHand[randomIndex]
+    }
+
+    // 最適解を選択
     let bestCardIndex = 0
     let bestScore = -1
 
@@ -68,11 +114,6 @@ export const useGame = () => {
         bestCardIndex = index
       }
     })
-
-    // ランダム性を追加（AIの難易度調整）
-    if (Math.random() < GAME_CONFIG.AI_RANDOMNESS) {
-      bestCardIndex = Math.floor(Math.random() * computerHand.length)
-    }
 
     return computerHand[bestCardIndex]
   }, [])
@@ -100,30 +141,33 @@ export const useGame = () => {
     setTimerInterval(newInterval)
   }, [timerInterval])
 
-  // ラウンド判定（新しい計算システムを使用）
+  // ラウンド判定（連勝数管理付き）
   const judgeRound = useCallback((playerCard: ChemicalCard, computerCard: ChemicalCard, topic: Topic): JudgeResult => {
     const winner = determineWinner(playerCard, computerCard, topic.text)
     const explanation = generateBattleExplanation(playerCard, computerCard, topic.text)
 
-    // スコア更新
-    if (winner === 'player') {
-      setGameState(prev => ({ ...prev, playerScore: prev.playerScore + 1 }))
-    } else if (winner === 'computer') {
-      setGameState(prev => ({ ...prev, computerScore: prev.computerScore + 1 }))
-    }
-
-    // 使用したカードを手札から除去
-    setGameState(prev => ({
-      ...prev,
-      playerHand: prev.playerHand.filter(card => 
-        !(card.formula === playerCard.formula && card.value === playerCard.value && card.unit === playerCard.unit)
-      ),
-      computerHand: prev.computerHand.filter(card => 
-        !(card.formula === computerCard.formula && card.value === computerCard.value && card.unit === computerCard.unit)
-      ),
-      playerSelectedCard: null,
-      computerSelectedCard: null
-    }))
+    // スコアと連勝数更新
+    setGameState(prev => {
+      const newPlayerScore = winner === 'player' ? prev.playerScore + 1 : prev.playerScore
+      const newComputerScore = winner === 'computer' ? prev.computerScore + 1 : prev.computerScore
+      const newWinStreak = winner === 'player' ? prev.winStreak + 1 : 0 // 負けたらリセット
+      
+      return {
+        ...prev,
+        playerScore: newPlayerScore,
+        computerScore: newComputerScore,
+        winStreak: newWinStreak,
+        // 使用したカードを手札から除去
+        playerHand: prev.playerHand.filter(card => 
+          !(card.formula === playerCard.formula && card.value === playerCard.value && card.unit === playerCard.unit)
+        ),
+        computerHand: prev.computerHand.filter(card => 
+          !(card.formula === computerCard.formula && card.value === computerCard.value && card.unit === computerCard.unit)
+        ),
+        playerSelectedCard: null,
+        computerSelectedCard: null
+      }
+    })
 
     const newPlayerScore = winner === 'player' ? gameState.playerScore + 1 : gameState.playerScore
     const newComputerScore = winner === 'computer' ? gameState.computerScore + 1 : gameState.computerScore
@@ -151,26 +195,55 @@ export const useGame = () => {
     return false
   }, [gameState.playerScore, gameState.computerScore, gameState.playerHand.length, gameState.computerHand.length])
 
-  // 最終結果取得
+  // 最終結果取得（連勝数情報付き）
   const getFinalResult = useCallback((): FinalResult => {
     if (gameState.playerScore >= GAME_CONFIG.TARGET_SCORE) {
-      return { winner: 'player', message: '🎊 おめでとうございます！<br>あなたの勝利です！' }
+      const message = gameState.winStreak >= 10 
+        ? `🎊 おめでとうございます！<br>連勝記録: ${gameState.winStreak}勝！<br>素晴らしい戦績です！`
+        : `🎊 おめでとうございます！<br>連勝記録: ${gameState.winStreak}勝`
+      return { winner: 'player', message }
     } else if (gameState.computerScore >= GAME_CONFIG.TARGET_SCORE) {
-      return { winner: 'computer', message: '💻 コンピューターの勝利です。<br>次回頑張りましょう！' }
+      // 連勝数はリセットされる
+      setGameState(prev => ({ ...prev, winStreak: 0 }))
+      return { winner: 'computer', message: '💻 コンピューターの勝利です。<br>連勝記録が途切れました...' }
     } else {
       // カードが尽きた場合のスコア判定
       if (gameState.playerScore > gameState.computerScore) {
-        return { winner: 'player', message: '🎊 カードが尽きました！<br>スコア勝ちです！' }
+        const message = `🎊 カードが尽きました！<br>連勝記録: ${gameState.winStreak}勝`
+        return { winner: 'player', message }
       } else if (gameState.computerScore > gameState.playerScore) {
-        return { winner: 'computer', message: '💻 カードが尽きました。<br>コンピューターのスコア勝ちです。' }
+        setGameState(prev => ({ ...prev, winStreak: 0 }))
+        return { winner: 'computer', message: '💻 カードが尽きました。<br>連勝記録が途切れました...' }
       } else {
         return { winner: 'tie', message: '🤝 カードが尽きました。<br>引き分けです！' }
       }
     }
-  }, [gameState.playerScore, gameState.computerScore])
+  }, [gameState.playerScore, gameState.computerScore, gameState.winStreak])
 
-  // ゲームリセット
+  // ゲームリセット（連勝数は保持）
   const resetGame = useCallback(() => {
+    if (timerInterval) {
+      clearInterval(timerInterval)
+      setTimerInterval(null)
+    }
+
+    setGameState(prev => ({
+      ...prev,
+      playerScore: 0,
+      computerScore: 0,
+      playerHand: [],
+      computerHand: [],
+      currentTopic: null,
+      playerSelectedCard: null,
+      computerSelectedCard: null,
+      timeLeft: 0,
+      gamePhase: 'waiting'
+      // winStreak は保持
+    }))
+  }, [timerInterval])
+
+  // 完全リセット（連勝数もリセット）
+  const fullReset = useCallback(() => {
     if (timerInterval) {
       clearInterval(timerInterval)
       setTimerInterval(null)
@@ -185,11 +258,10 @@ export const useGame = () => {
       playerSelectedCard: null,
       computerSelectedCard: null,
       timeLeft: 0,
-      gamePhase: 'waiting'
+      gamePhase: 'waiting',
+      winStreak: 0
     })
-
-    dealCards()
-  }, [dealCards, timerInterval])
+  }, [timerInterval])
 
   // プレイヤーカード選択
   const selectPlayerCard = useCallback((card: ChemicalCard) => {
@@ -218,7 +290,7 @@ export const useGame = () => {
     return topic
   }, [gameState.gamePhase, gameState.playerHand.length, gameState.computerHand.length, selectRandomTopic])
 
-  // カードをプレイ
+  // カードをプレイ（難易度調整付き）
   const playCard = useCallback((selectedCard?: ChemicalCard) => {
     if (timerInterval) {
       clearInterval(timerInterval)
@@ -226,7 +298,7 @@ export const useGame = () => {
     }
 
     const playerCard = selectedCard || gameState.playerSelectedCard || gameState.playerHand[Math.floor(Math.random() * gameState.playerHand.length)]
-    const computerCard = computerSelectCard(gameState.currentTopic, gameState.computerHand)
+    const computerCard = computerSelectCard(gameState.currentTopic, gameState.computerHand, gameState.winStreak)
 
     if (!playerCard || !computerCard) {
       console.error('プレイヤーまたはコンピューターのカードが見つかりません')
@@ -241,12 +313,26 @@ export const useGame = () => {
     }))
 
     return { playerCard, computerCard }
-  }, [gameState.playerSelectedCard, gameState.currentTopic, gameState.computerHand, gameState.playerHand, computerSelectCard, timerInterval])
+  }, [gameState.playerSelectedCard, gameState.currentTopic, gameState.computerHand, gameState.playerHand, gameState.winStreak, computerSelectCard, timerInterval])
+
+  // 現在のCPU難易度を取得
+  const getCurrentCPUDifficulty = useCallback(() => {
+    const randomness = calculateCPURandomness(gameState.winStreak)
+    const accuracy = Math.round((1 - randomness) * 100)
+    return {
+      winStreak: gameState.winStreak,
+      accuracy: `${accuracy}%`,
+      level: gameState.winStreak <= 5 ? '初級' :
+             gameState.winStreak <= 15 ? '中級' :
+             gameState.winStreak <= 25 ? '上級' :
+             gameState.winStreak <= 35 ? '最上級' : '神級'
+    }
+  }, [gameState.winStreak])
 
   // 初期化
   useEffect(() => {
-    dealCards()
-  }, [dealCards])
+    // 初期化時はカードを配らない（シャッフル画面で決める）
+  }, [])
 
   // クリーンアップ
   useEffect(() => {
@@ -260,14 +346,17 @@ export const useGame = () => {
   return {
     gameState,
     dealCards,
+    setPlayerHand, // 新しく追加
     selectRandomTopic,
     startTimer,
     judgeRound,
     checkGameEnd,
     getFinalResult,
     resetGame,
+    fullReset, // 新しく追加
     selectPlayerCard,
     startNewRound,
-    playCard
+    playCard,
+    getCurrentCPUDifficulty // 新しく追加
   }
 }
