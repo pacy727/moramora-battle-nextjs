@@ -1,7 +1,7 @@
-// src/app/components/BattleRoadScreen.tsx - 改良版（デザイン刷新）
+// src/app/components/BattleRoadScreen.tsx - 簡素化版（無限レンダリング対策）
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BackgroundEffects, FloatingParticles, Confetti } from './Feedback/VisualFeedbackSystem'
 
 // 元素データ（1-54番）
@@ -26,7 +26,12 @@ interface BattleRoadScreenProps {
   onRetry: () => void
 }
 
-type AnimationPhase = 'idle' | 'victory-mark' | 'player-move' | 'vs-animation' | 'defeat-mark' | 'life-decrease' | 'revenge' | 'game-clear'
+type AnimationPhase = 
+  | 'waiting'
+  | 'ready' 
+  | 'victory-sequence'
+  | 'defeat-sequence'
+  | 'game-clear'
 
 export default function BattleRoadScreen({
   currentElement,
@@ -39,128 +44,161 @@ export default function BattleRoadScreen({
   onGameOver,
   onRetry
 }: BattleRoadScreenProps) {
-  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('idle')
+  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('waiting')
   const [showConfetti, setShowConfetti] = useState(false)
-  const [displayedElements, setDisplayedElements] = useState<number[]>([])
+  const [showBattleMessage, setShowBattleMessage] = useState(false)
+  const [roadOffset, setRoadOffset] = useState(0)
+  
+  // アニメーション実行を防ぐためのref
+  const animationExecutedRef = useRef(false)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 初期表示設定
+  console.log('BattleRoadScreen render:', {
+    currentElement,
+    isVictory,
+    isDefeat,
+    animationPhase,
+    animationExecuted: animationExecutedRef.current
+  })
+
+  // 状態変化時のリセット処理
   useEffect(() => {
-    console.log('BattleRoad初期化:', { currentElement, wins, life, isVictory, isDefeat })
-    
-    // 表示する元素を常に更新
-    const getDisplayedElements = () => {
-      const playerPos = currentElement
-      const startIndex = Math.max(0, Math.min(playerPos - 2, ELEMENTS.length - 5))
-      return Array.from({ length: 5 }, (_, i) => startIndex + i).filter(i => i < ELEMENTS.length)
+    // 新しいバトルが始まった時（currentElementが変わった時）
+    const shouldReset = !isVictory && !isDefeat && !isGameClear
+    if (shouldReset) {
+      console.log('状態リセット')
+      animationExecutedRef.current = false
+      setRoadOffset(0)
     }
-    
-    setDisplayedElements(getDisplayedElements())
-    console.log('表示元素設定:', getDisplayedElements())
-  }, [currentElement, isVictory, isDefeat])
+  }, [currentElement, isVictory, isDefeat, isGameClear])
 
-  // 勝利アニメーション
+  // 表示する元素を計算
+  const getDisplayedElements = () => {
+    const startIndex = Math.max(0, Math.min(currentElement - 2, ELEMENTS.length - 5))
+    return Array.from({ length: 5 }, (_, i) => startIndex + i).filter(i => i < ELEMENTS.length)
+  }
+
+  const displayedElements = getDisplayedElements()
+
+  // 初期状態の設定
   useEffect(() => {
-    if (isVictory && animationPhase === 'idle') {
-      console.log('勝利アニメーション開始')
-      setAnimationPhase('victory-mark')
+    if (!isVictory && !isDefeat && !isGameClear && animationPhase === 'waiting') {
+      console.log('初期状態設定 - 1.5秒後にバトルメッセージ表示')
       
-      setTimeout(() => {
-        setAnimationPhase('player-move')
-        // 表示要素を更新
-        const newPlayerPos = currentElement + 1
-        const startIndex = Math.max(0, Math.min(newPlayerPos - 2, ELEMENTS.length - 5))
-        const newElements = Array.from({ length: 5 }, (_, i) => startIndex + i).filter(i => i < ELEMENTS.length)
-        setDisplayedElements(newElements)
+      const timer = setTimeout(() => {
+        setShowBattleMessage(true)
+        setAnimationPhase('ready')
       }, 1500)
       
-      setTimeout(() => {
-        if (currentElement >= 53) { // Xeまで到達
-          setAnimationPhase('game-clear')
-          setShowConfetti(true)
-        } else {
-          setAnimationPhase('vs-animation')
-        }
-      }, 3500)
-      
-      setTimeout(() => {
-        if (currentElement < 53) {
-          console.log('次のバトルを開始')
-          setAnimationPhase('idle') // アニメーション状態をリセット
-          onStartNextBattle()
-        }
-      }, 5000)
+      return () => clearTimeout(timer)
     }
-  }, [isVictory, animationPhase, currentElement, onStartNextBattle])
+  }, [isVictory, isDefeat, isGameClear, animationPhase])
 
-  // 敗北アニメーション
+  // 勝利状態の監視と即座の反応
   useEffect(() => {
-    if (isDefeat && animationPhase === 'idle') {
-      console.log('敗北アニメーション開始')
-      setAnimationPhase('defeat-mark')
+    console.log('勝利状態監視useEffect:', { 
+      isVictory, 
+      animationExecuted: animationExecutedRef.current,
+      currentElement 
+    })
+    
+    if (isVictory && !animationExecutedRef.current) {
+      console.log('勝利状態検出 - アニメーション開始')
+      animationExecutedRef.current = true
       
-      setTimeout(() => {
-        setAnimationPhase('life-decrease')
-      }, 1500)
+      setShowBattleMessage(false)
+      setAnimationPhase('victory-sequence')
+
+      // シンプルなアニメーションシーケンス
+      let step = 0
+      const executeStep = () => {
+        step++
+        console.log(`勝利アニメーションステップ ${step}`)
+        
+        switch (step) {
+          case 1: // 勝利マーク表示
+            console.log('勝利マーク表示')
+            break
+          case 2: // 道路移動
+            console.log('道路移動開始')
+            setRoadOffset(-160)
+            break
+          case 3: // 次のメッセージ表示
+            if (currentElement >= 53) {
+              console.log('ゲームクリア!')
+              setAnimationPhase('game-clear')
+              setShowConfetti(true)
+              return
+            } else {
+              console.log('次バトルメッセージ表示')
+              setShowBattleMessage(true)
+            }
+            break
+          case 4: // 次バトル開始
+            console.log('次のバトル開始処理')
+            setAnimationPhase('waiting')
+            setShowBattleMessage(false)
+            setRoadOffset(0) // オフセットリセット
+            animationExecutedRef.current = false
+            onStartNextBattle()
+            return
+        }
+
+        if (step < 4) {
+          timeoutRef.current = setTimeout(executeStep, step === 1 ? 1000 : step === 2 ? 1500 : 2000)
+        }
+      }
+
+      executeStep()
+
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+      }
+    }
+  }, [isVictory, currentElement, onStartNextBattle]) // 必要な依存関係を追加
+
+  // 敗北状態の監視
+  useEffect(() => {
+    if (isDefeat && !animationExecutedRef.current) {
+      console.log('敗北状態検出 - アニメーション開始')
+      animationExecutedRef.current = true
       
-      setTimeout(() => {
-        if (life <= 1) { // 残りライフが0になる
-          console.log('ゲームオーバー')
+      setShowBattleMessage(false)
+      setAnimationPhase('defeat-sequence')
+
+      const timer = setTimeout(() => {
+        if (life <= 1) {
+          console.log('ゲームオーバー処理')
           onGameOver()
         } else {
-          setAnimationPhase('revenge')
-        }
-      }, 3000)
-      
-      setTimeout(() => {
-        if (life > 1) {
-          console.log('リベンジ開始')
-          setAnimationPhase('idle') // アニメーション状態をリセット
+          console.log('リベンジ処理')
+          setAnimationPhase('waiting')
+          animationExecutedRef.current = false
           onRetry()
         }
-      }, 4500)
+      }, 3000)
+
+      return () => clearTimeout(timer)
     }
-  }, [isDefeat, animationPhase, life, onGameOver, onRetry])
+  }, [isDefeat]) // 依存関係を最小化
 
   // ゲームクリア処理
   useEffect(() => {
-    if (isGameClear) {
+    if (isGameClear && animationPhase !== 'game-clear') {
       setAnimationPhase('game-clear')
       setShowConfetti(true)
     }
-  }, [isGameClear])
+  }, [isGameClear, animationPhase])
 
-  // プレイヤーの位置を取得（修正版）
-  const getPlayerPosition = () => {
-    // 移動アニメーション中のみ次の位置を返す
-    if (animationPhase === 'player-move') {
-      return currentElement + 1
-    }
-    // それ以外は現在の位置
-    return currentElement
-  }
-
-  // 元素の状態を取得（修正版）
+  // 元素の状態を取得
   const getElementState = (elementIndex: number) => {
-    const playerPos = getPlayerPosition()
-    
-    // 既に倒した元素
     if (elementIndex < currentElement) return 'defeated'
-    
-    // 現在勝利マークを表示中
-    if (elementIndex === currentElement && animationPhase === 'victory-mark') return 'victory'
-    
-    // 現在敗北マークを表示中
-    if (elementIndex === currentElement && animationPhase === 'defeat-mark') return 'current-defeat'
-    
-    // 現在の対戦相手
-    if (elementIndex === currentElement && animationPhase === 'idle') return 'current-battle'
-    
-    // VSアニメーション中の次の相手
-    if (elementIndex === currentElement + 1 && animationPhase === 'vs-animation') return 'current-battle'
-    
-    // 未来の相手
+    if (elementIndex === currentElement && animationPhase === 'victory-sequence') return 'victory'
+    if (elementIndex === currentElement && animationPhase === 'defeat-sequence') return 'current-defeat'
+    if (elementIndex === currentElement) return 'current-battle'
     if (elementIndex > currentElement) return 'upcoming'
-    
     return 'normal'
   }
 
@@ -169,7 +207,7 @@ export default function BattleRoadScreen({
     const hearts = []
     for (let i = 0; i < 2; i++) {
       const isAlive = i < life
-      const isDecreasing = animationPhase === 'life-decrease' && i === life - 1
+      const isDecreasing = animationPhase === 'defeat-sequence' && i === life - 1
       hearts.push(
         <span 
           key={i} 
@@ -188,52 +226,46 @@ export default function BattleRoadScreen({
   const renderRoad = () => {
     return (
       <div className="absolute inset-x-0 top-1/2 transform -translate-y-1/2">
-        {/* メインの道路 */}
         <div className="h-8 bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 relative overflow-hidden">
-          {/* 道路のライン */}
           <div className="absolute inset-x-0 top-1/2 transform -translate-y-1/2 h-1 bg-white opacity-60" />
           <div className="absolute inset-x-0 top-1/2 transform -translate-y-1/2 h-0.5 bg-yellow-200" />
-          
-          {/* 道路の継続表示 */}
           <div className="absolute -left-20 inset-y-0 w-20 bg-gradient-to-r from-yellow-600 to-yellow-500" />
           <div className="absolute -right-20 inset-y-0 w-20 bg-gradient-to-r from-yellow-500 to-yellow-600" />
         </div>
-        
-        {/* 道路の影 */}
         <div className="h-2 bg-gradient-to-r from-yellow-800 via-yellow-700 to-yellow-800 opacity-50" />
       </div>
     )
   }
 
-  // 元素ロード表示（改良版）
+  // 元素ロード表示
   const renderElementRoad = () => {
-    const playerPos = getPlayerPosition()
-    const elementSpacing = 160 // 元素間の距離
-    
+    const elementSpacing = 160
+
     return (
       <div className="relative h-40 flex items-center justify-center">
-        {/* 道路 */}
         {renderRoad()}
         
-        {/* 元素とプレイヤーの配置 */}
-        <div className="relative flex items-center justify-center gap-0" style={{ width: '800px' }}>
+        <div 
+          className="relative flex items-center justify-center gap-0 transition-transform duration-1500 ease-out" 
+          style={{ 
+            width: '800px',
+            transform: `translateX(${roadOffset}px)`
+          }}
+        >
           {displayedElements.map((elementIndex, displayIndex) => {
             const element = ELEMENTS[elementIndex]
             const state = getElementState(elementIndex)
-            const playerPos = getPlayerPosition()
-            const isPlayerHere = elementIndex === playerPos
-            
-            console.log(`元素 ${element}(${elementIndex}):`, { state, playerPos, isPlayerHere, displayIndex })
+            const isPlayerHere = elementIndex === currentElement
             
             return (
               <div 
-                key={elementIndex} 
+                key={`element-${elementIndex}`} 
                 className="absolute flex flex-col items-center"
                 style={{ 
                   left: `${displayIndex * elementSpacing}px`
                 }}
               >
-                {/* 元素駒（常に表示） */}
+                {/* 元素駒 */}
                 <div className={`
                   w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-sm
                   border-4 shadow-xl relative transition-all duration-500 z-10
@@ -246,9 +278,9 @@ export default function BattleRoadScreen({
                   
                   {/* 勝利マーク */}
                   {state === 'victory' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-yellow-400 animate-victory-mark-epic">
-                      <div className="text-2xl font-bold">×</div>
-                      <div className="text-xs font-bold">WIN</div>
+                    <div className="absolute inset-0 flex items-center justify-center text-white overflow-hidden rounded-full">
+                      <div className="absolute inset-0 bg-red-500 opacity-80 rounded-full animate-ping" />
+                      <div className="relative z-10 text-white text-2xl font-bold">×</div>
                     </div>
                   )}
                   
@@ -260,22 +292,19 @@ export default function BattleRoadScreen({
                   )}
                 </div>
                 
-                {/* プレイヤー駒（該当位置のみ表示） */}
+                {/* プレイヤー駒 */}
                 {isPlayerHere && (
                   <div className={`
                     absolute w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-600 
                     rounded-full flex items-center justify-center text-white font-bold text-sm
                     border-4 border-yellow-300 shadow-xl transform relative z-20 -mt-20
-                    ${animationPhase === 'player-move' ? 'transition-transform duration-2000' : ''}
-                    ${animationPhase === 'defeat-mark' ? 'animate-pulse' : 'animate-player-idle-epic'}
-                  `}
-                  style={{
-                    transform: animationPhase === 'player-move' ? `translateX(${elementSpacing}px)` : 'none'
-                  }}
-                  >
+                    ${animationPhase === 'victory-sequence' ? 'animate-bounce' : 
+                      animationPhase === 'defeat-sequence' ? 'animate-pulse' : 
+                      'animate-pulse'}
+                  `}>
                     YOU
-                    {animationPhase === 'defeat-mark' && elementIndex === currentElement && (
-                      <div className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl font-bold animate-bounce-in">
+                    {animationPhase === 'defeat-sequence' && (
+                      <div className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl font-bold">
                         ×
                       </div>
                     )}
@@ -286,13 +315,6 @@ export default function BattleRoadScreen({
                 <div className="text-white text-xs mt-2 bg-black/50 px-2 py-1 rounded">
                   {elementIndex + 1}. {element}
                 </div>
-                
-                {/* VS表示 */}
-                {state === 'current-battle' && animationPhase === 'vs-animation' && (
-                  <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 text-yellow-400 text-3xl font-bold animate-vs-zoom-epic z-30">
-                    VS
-                  </div>
-                )}
               </div>
             )
           })}
@@ -301,9 +323,17 @@ export default function BattleRoadScreen({
     )
   }
 
+  // 元素名を取得
+  const getElementName = (index: number) => {
+    const names = [
+      '水素', 'ヘリウム', 'リチウム', 'ベリリウム', 'ホウ素', '炭素', '窒素', '酸素', 'フッ素', 'ネオン',
+      'ナトリウム', 'マグネシウム', 'アルミニウム', 'ケイ素', 'リン', '硫黄', '塩素', 'アルゴン', 'カリウム', 'カルシウム'
+    ]
+    return names[index] || ELEMENTS[index]
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex flex-col items-center justify-center relative overflow-hidden animate-page-enter-epic">
-      {/* 壮大な背景エフェクト */}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex flex-col items-center justify-center relative overflow-hidden">
       <BackgroundEffects intensity="high" theme="victory" />
       <FloatingParticles count={30} color="#ffd700" size="medium" />
       <Confetti active={showConfetti} />
@@ -313,7 +343,7 @@ export default function BattleRoadScreen({
         {Array.from({ length: 100 }).map((_, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-white rounded-full animate-star-twinkle"
+            className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
@@ -328,9 +358,7 @@ export default function BattleRoadScreen({
         {/* ライフ表示 */}
         <div className="absolute top-8 left-8">
           <div className="text-2xl font-bold text-white mb-2">Life:</div>
-          <div className="flex gap-2">
-            {renderLife()}
-          </div>
+          <div className="flex gap-2">{renderLife()}</div>
         </div>
 
         {/* スコア表示 */}
@@ -342,7 +370,7 @@ export default function BattleRoadScreen({
 
         {/* メインタイトル */}
         <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold bg-gradient-to-r from-yellow-300 via-orange-400 to-red-400 bg-clip-text text-transparent animate-epic-title mb-4">
+          <h1 className="text-6xl font-bold bg-gradient-to-r from-yellow-300 via-orange-400 to-red-400 bg-clip-text text-transparent mb-4">
             🌟 ELEMENT BATTLE ROAD 🌟
           </h1>
           <div className="text-xl text-white/80">
@@ -351,33 +379,25 @@ export default function BattleRoadScreen({
         </div>
 
         {/* 元素ロード */}
-        <div className="mb-16">
-          {renderElementRoad()}
-        </div>
+        <div className="mb-16">{renderElementRoad()}</div>
 
-        {/* ゲーム開始ボタン（初回表示時のみ） */}
-        {animationPhase === 'idle' && !isVictory && !isDefeat && !isGameClear && (
-          <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-gradient-to-br from-blue-600/90 to-purple-600/90 backdrop-blur-md rounded-2xl p-12 text-center animate-epic-title">
+        {/* バトル開始ボタン */}
+        {showBattleMessage && animationPhase === 'ready' && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in">
+            <div className="bg-gradient-to-br from-blue-600/90 to-purple-600/90 backdrop-blur-md rounded-2xl p-12 text-center">
               <div className="text-4xl font-bold text-white mb-6">
                 🧪 {ELEMENTS[currentElement]} との戦い！ 🧪
               </div>
               <div className="text-xl text-white mb-8">
-                元素 #{currentElement + 1}: {ELEMENTS[currentElement]}（{
-                  currentElement === 0 ? '水素' :
-                  currentElement === 1 ? 'ヘリウム' :
-                  currentElement === 2 ? 'リチウム' :
-                  currentElement === 3 ? 'ベリリウム' :
-                  currentElement === 4 ? 'ホウ素' :
-                  ELEMENTS[currentElement]
-                }）
+                元素 #{currentElement + 1}: {ELEMENTS[currentElement]}（{getElementName(currentElement)}）
               </div>
               <button
                 onClick={() => {
                   console.log('バトル開始ボタンクリック')
+                  setShowBattleMessage(false)
                   onStartNextBattle()
                 }}
-                className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold py-4 px-12 rounded-full text-2xl transition-all duration-300 shadow-2xl hover:shadow-green-500/50 hover:-translate-y-2 hover:scale-110 animate-pulse-glow relative overflow-hidden group"
+                className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold py-4 px-12 rounded-full text-2xl transition-all duration-300 shadow-2xl hover:shadow-green-500/50 hover:-translate-y-2 hover:scale-110 relative overflow-hidden group"
               >
                 <span className="relative z-10 flex items-center gap-3">
                   ⚔️ <span>バトル開始！</span> ⚔️
@@ -388,19 +408,38 @@ export default function BattleRoadScreen({
           </div>
         )}
 
+        {/* 次のバトルメッセージ */}
+        {showBattleMessage && animationPhase === 'victory-sequence' && currentElement + 1 < ELEMENTS.length && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in">
+            <div className="bg-gradient-to-br from-green-600/90 to-teal-600/90 backdrop-blur-md rounded-2xl p-12 text-center">
+              <div className="text-4xl font-bold text-white mb-6">
+                🧪 次の挑戦者: {ELEMENTS[currentElement + 1]} 🧪
+              </div>
+              <div className="text-xl text-white mb-8">
+                元素 #{currentElement + 2}: {ELEMENTS[currentElement + 1]}（{getElementName(currentElement + 1)}）
+              </div>
+              <div className="text-lg text-white/80">
+                次のバトルが始まります...
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 特別なメッセージ */}
-        {animationPhase === 'revenge' && (
+        {animationPhase === 'defeat-sequence' && (
           <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-red-600/90 backdrop-blur-md rounded-2xl p-12 text-center animate-revenge-epic">
-              <div className="text-6xl font-bold text-white mb-4">⚡ リベンジ！ ⚡</div>
-              <div className="text-xl text-white">再び立ち上がれ、勇者よ！</div>
+            <div className="bg-red-600/90 backdrop-blur-md rounded-2xl p-12 text-center">
+              <div className="text-6xl font-bold text-white mb-4">⚡ 敗北... ⚡</div>
+              <div className="text-xl text-white">
+                {life <= 1 ? 'ゲームオーバー...' : 'リベンジの機会あり！'}
+              </div>
             </div>
           </div>
         )}
 
         {animationPhase === 'game-clear' && (
           <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-gradient-to-br from-yellow-400 to-orange-500 backdrop-blur-md rounded-2xl p-16 text-center animate-game-clear-epic">
+            <div className="bg-gradient-to-br from-yellow-400 to-orange-500 backdrop-blur-md rounded-2xl p-16 text-center">
               <div className="text-8xl font-bold text-white mb-6 animate-bounce">🏆 GAME CLEAR! 🏆</div>
               <div className="text-3xl text-white mb-8">全54元素制覇達成！</div>
               <div className="text-xl text-white">君こそ真の元素マスターだ！</div>
@@ -408,19 +447,31 @@ export default function BattleRoadScreen({
           </div>
         )}
 
-        {life <= 0 && animationPhase !== 'game-clear' && (
+        {life <= 0 && (
           <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-gray-900/90 backdrop-blur-md rounded-2xl p-12 text-center animate-fade-in">
+            <div className="bg-gray-900/90 backdrop-blur-md rounded-2xl p-12 text-center">
               <div className="text-6xl font-bold text-red-400 mb-8">💀 GAME OVER 💀</div>
               <div className="text-xl text-white mb-8">冒険は終わった...</div>
               <button
                 onClick={onGameOver}
-                className="bg-gradient-to-r from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 animate-fade-in"
-                style={{ animationDelay: '1s' }}
+                className="bg-gradient-to-r from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800 text-white font-bold py-4 px-8 rounded-full transition-all duration-300"
               >
                 🏠 タイトルに戻る
               </button>
             </div>
+          </div>
+        )}
+
+        {/* デバッグ情報（開発時のみ） */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-4 left-4 bg-black/50 text-white p-4 rounded text-sm font-mono z-50">
+            <div>Phase: {animationPhase}</div>
+            <div>Element: {currentElement} ({ELEMENTS[currentElement]})</div>
+            <div>Victory: {isVictory.toString()}</div>
+            <div>Defeat: {isDefeat.toString()}</div>
+            <div>Message: {showBattleMessage.toString()}</div>
+            <div>Offset: {roadOffset}px</div>
+            <div>Executed: {animationExecutedRef.current.toString()}</div>
           </div>
         )}
       </div>

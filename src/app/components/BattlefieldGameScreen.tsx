@@ -1,7 +1,7 @@
-// src/app/components/BattlefieldGameScreen.tsx (完全版 - バトルロード対応)
+// src/app/components/BattlefieldGameScreen.tsx (修正版 - 無限レンダリング対策)
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useGame } from '../lib/useGame'
 import { ChemicalCard } from '../types/game'
 import { EnhancedCard } from './Card/EnhancedCard'
@@ -46,9 +46,10 @@ interface BattleResult {
 export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initialPlayerHand }: BattlefieldGameScreenProps) {
   const gameHook = useGame()
   
-  // デバッグ: useGameの返り値を確認
-  console.log('useGame返り値:', Object.keys(gameHook))
-  
+  // useRefを使って前回の値を記憶
+  const prevGamePhaseRef = useRef<string>('waiting')
+  const gameEndHandledRef = useRef<boolean>(false)
+
   const {
     gameState,
     setPlayerHand,
@@ -74,17 +75,18 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
   } | null>(null)
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null)
 
-  // 初期手札設定
+  // 初期手札設定（一度だけ実行）
   useEffect(() => {
-    if (initialPlayerHand.length > 0 && setPlayerHand) {
+    if (initialPlayerHand.length > 0 && setPlayerHand && gameState.playerHand.length === 0) {
+      console.log('初期手札設定:', initialPlayerHand.length)
       setPlayerHand(initialPlayerHand)
     }
-  }, [initialPlayerHand, setPlayerHand])
+  }, [initialPlayerHand, setPlayerHand, gameState.playerHand.length])
 
-  // CPU難易度計算（ローカル実装）
-  const calculateCPUDifficulty = () => {
+  // CPU難易度計算（メモ化）
+  const cpuDifficulty = useMemo(() => {
     const winStreak = gameState?.winStreak || 0
-    let randomness = 0.30 // デフォルト値
+    let randomness = 0.30
     
     if (winStreak <= 5) randomness = 0.30
     else if (winStreak <= 10) randomness = 0.25
@@ -104,28 +106,26 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
              winStreak <= 25 ? '上級' :
              winStreak <= 35 ? '最上級' : '神級'
     }
-  }
+  }, [gameState?.winStreak])
 
-  const cpuDifficulty = calculateCPUDifficulty()
-
-  // スコアアニメーション表示
-  const showScoreUpAnimation = (value: number) => {
+  // スコアアニメーション表示（useCallback化）
+  const showScoreUpAnimation = useCallback((value: number) => {
     setScoreAnimation({
       show: true,
       value,
       position: { x: window.innerWidth / 2, y: window.innerHeight / 2 }
     })
     setTimeout(() => setScoreAnimation(null), 2000)
-  }
+  }, [])
 
-  // バトルシーケンスの実行
-  const executeBattleSequence = (playerCard: ChemicalCard, computerCard: ChemicalCard) => {
+  // バトルシーケンスの実行（useCallback化）
+  const executeBattleSequence = useCallback((playerCard: ChemicalCard, computerCard: ChemicalCard) => {
     console.log('バトルシーケンス開始:', playerCard.formula, 'vs', computerCard.formula)
 
     // 1. プレイヤーカード表示
     setBattlePhase('player-card-reveal')
     setBattleResult({
-      winner: 'tie', // 仮の値
+      winner: 'tie',
       playerCard,
       computerCard,
       playerValue: 0,
@@ -133,28 +133,22 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
     })
     
     setTimeout(() => {
-      // 2. コンピューターカード表示
       setBattlePhase('computer-card-reveal')
     }, 1000)
     
     setTimeout(() => {
-      // 3. プレイヤー数値表示
       setBattlePhase('player-number-reveal')
       const playerValue = getCardComparisonValue(playerCard, gameState.currentTopic!.text)
       setBattleResult(prev => prev ? { ...prev, playerValue } : null)
-      console.log('プレイヤー計算値:', playerValue)
     }, 2000)
     
     setTimeout(() => {
-      // 4. コンピューター数値表示
       setBattlePhase('computer-number-reveal')
       const computerValue = getCardComparisonValue(computerCard, gameState.currentTopic!.text)
       setBattleResult(prev => prev ? { ...prev, computerValue } : null)
-      console.log('コンピューター計算値:', computerValue)
     }, 3000)
     
     setTimeout(() => {
-      // 5. ジャッジ表示
       setBattlePhase('judge-reveal')
       const result = judgeRound(playerCard, computerCard, gameState.currentTopic!)
       const playerValue = getCardComparisonValue(playerCard, gameState.currentTopic!.text)
@@ -168,9 +162,6 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
         computerValue
       })
       
-      console.log('ジャッジ結果:', result.winner)
-      
-      // エフェクト
       if (result.winner === 'player') {
         setShowConfetti(true)
         showScoreUpAnimation(1)
@@ -178,14 +169,13 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
     }, 4000)
     
     setTimeout(() => {
-      // 6. ラウンド終了
       setBattlePhase('round-end')
       checkGameEnd()
     }, 7000)
-  }
+  }, [gameState.currentTopic, judgeRound, checkGameEnd, showScoreUpAnimation])
 
-  // カード選択処理
-  const handleCardSelect = (card: ChemicalCard, index: number) => {
+  // カード選択処理（useCallback化）
+  const handleCardSelect = useCallback((card: ChemicalCard, index: number) => {
     if (battlePhase !== 'card-selection') return
     
     console.log('カード選択:', card.formula, card.value + card.unit)
@@ -193,19 +183,17 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
     selectPlayerCard(card)
     setSelectedCardIndex(index)
     
-    // useGameでカードバトルを実行
     const { playerCard, computerCard } = playCard(card)
     
     if (!playerCard || !computerCard || !gameState.currentTopic) return
     
     executeBattleSequence(playerCard, computerCard)
-  }
+  }, [battlePhase, selectPlayerCard, playCard, gameState.currentTopic, executeBattleSequence])
 
-  // 新しいラウンド開始
-  const handleStartNewRound = () => {
+  // 新しいラウンド開始（useCallback化）
+  const handleStartNewRound = useCallback(() => {
     console.log('新しいラウンド開始')
     
-    // 状態をリセット
     setBattlePhase('topic-reveal')
     setSelectedCardIndex(null)
     setBattleResult(null)
@@ -215,50 +203,61 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
     if (topic) {
       setTopicDisplay(topic.text)
       
-      // 3秒間お題を表示
       setTimeout(() => {
         setBattlePhase('timer-countdown')
         
-        // タイマー開始
         startTimer(() => {
-          // 時間切れ処理
           console.log('時間切れ')
-          
           const { playerCard, computerCard } = playCard()
-          
           if (!playerCard || !computerCard || !gameState.currentTopic) return
-          
           executeBattleSequence(playerCard, computerCard)
         })
       }, 3000)
       
-      // タイマー開始後、カード選択フェーズに移行
       setTimeout(() => {
         setBattlePhase('card-selection')
       }, 3500)
     }
-  }
+  }, [startNewRound, startTimer, playCard, gameState.currentTopic, executeBattleSequence])
 
-  // ゲーム終了処理を安定化
+  // ゲーム終了処理（useCallback化・重複実行防止）
   const handleGameFinish = useCallback((result: 'victory' | 'defeat') => {
-    const timeoutId = setTimeout(() => {
+    if (gameEndHandledRef.current) return // 重複実行防止
+    
+    gameEndHandledRef.current = true
+    console.log('ゲーム終了処理:', result)
+    
+    setTimeout(() => {
       onGameEnd(result)
     }, 2000)
-    return () => clearTimeout(timeoutId)
   }, [onGameEnd])
 
-  // ゲーム終了時のエフェクト（バトルロード対応）
+  // ゲーム終了時のエフェクト（最適化）
   useEffect(() => {
-    if (gameState.gamePhase === 'finished') {
+    const currentPhase = gameState.gamePhase
+    
+    // 前回と同じフェーズの場合は何もしない
+    if (currentPhase === prevGamePhaseRef.current) return
+    
+    prevGamePhaseRef.current = currentPhase
+    
+    if (currentPhase === 'finished' && !gameEndHandledRef.current) {
       const finalResult = getFinalResult()
       if (finalResult?.winner === 'player') {
         setShowConfetti(true)
-        return handleGameFinish('victory')
+        handleGameFinish('victory')
       } else {
-        return handleGameFinish('defeat')
+        handleGameFinish('defeat')
       }
     }
   }, [gameState.gamePhase, getFinalResult, handleGameFinish])
+
+  // コンポーネントアンマウント時にrefをリセット
+  useEffect(() => {
+    return () => {
+      gameEndHandledRef.current = false
+    }
+  }, [])
 
   const finalResult = gameState.gamePhase === 'finished' ? getFinalResult() : null
 
@@ -300,7 +299,7 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
         <HandDisplay
           cards={gameState.computerHand}
           isPlayerHand={false}
-          showBack={false} // オモテ表示
+          showBack={false}
           canSelectCards={false}
         />
 
@@ -338,7 +337,7 @@ export default function BattlefieldGameScreen({ onBackToTitle, onGameEnd, initia
         </div>
       </div>
 
-      {/* ゲーム終了画面（簡易版 - バトルロードに遷移するため） */}
+      {/* ゲーム終了画面（簡易版） */}
       {finalResult && (
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 text-center shadow-2xl max-w-md animate-zoom-in relative overflow-hidden">

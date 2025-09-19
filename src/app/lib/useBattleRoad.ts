@@ -1,4 +1,4 @@
-// src/app/lib/useBattleRoad.ts - バトルロード状態管理（完全修正版）
+// src/app/lib/useBattleRoad.ts - バトルロード状態管理（修正版）
 'use client'
 
 import { useState, useCallback } from 'react'
@@ -83,19 +83,6 @@ export const useBattleRoad = () => {
     ]
     return elements[battleRoadState.currentElement] || 'Unknown'
   }, [battleRoadState.currentElement])
-
-  // デバッグ用ログ
-  console.log('useBattleRoad - 返り値:', {
-    battleRoadState,
-    hasStartedFirstBattle,
-    startFirstBattle: typeof startFirstBattle,
-    handleVictory: typeof handleVictory,
-    handleDefeat: typeof handleDefeat,
-    resetToTitle: typeof resetToTitle,
-    retryBattle: typeof retryBattle,
-    isGameClear: typeof isGameClear,
-    getCurrentElementSymbol: typeof getCurrentElementSymbol
-  })
 
   return {
     battleRoadState,

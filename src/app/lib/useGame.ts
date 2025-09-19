@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { ChemicalCard, GameState, Topic, JudgeResult, FinalResult } from '../types/game'
 import { CHEMICAL_CARDS, TOPICS, GAME_CONFIG } from './gameData'
 import { 
   calculateCardSuitability, 
   determineWinner, 
-  generateBattleExplanation,
-  getCardDisplayValue 
+  generateBattleExplanation
 } from './calculationUtils'
 
 // 拡張されたゲーム状態
@@ -51,9 +50,21 @@ export const useGame = () => {
   })
 
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null)
+  
+  // refを使って前回の状態を記録
+  const prevPlayerHandRef = useRef<ChemicalCard[]>([])
 
   // 手札を設定（シャッフル画面から受け取る）
   const setPlayerHand = useCallback((hand: ChemicalCard[]) => {
+    // 前回と同じ手札の場合は何もしない
+    if (JSON.stringify(prevPlayerHandRef.current) === JSON.stringify(hand)) {
+      console.log('同じ手札のため、setPlayerHandをスキップ')
+      return
+    }
+    
+    console.log('新しい手札を設定:', hand.length)
+    prevPlayerHandRef.current = hand
+    
     // CPUの手札も同時に生成
     const remainingCards = CHEMICAL_CARDS.filter(card => 
       !hand.some(playerCard => 
@@ -195,7 +206,7 @@ export const useGame = () => {
     return false
   }, [gameState.playerScore, gameState.computerScore, gameState.playerHand.length, gameState.computerHand.length])
 
-  // 最終結果取得（連勝数情報付き）
+  // 最終結果取得（メモ化）
   const getFinalResult = useCallback((): FinalResult => {
     if (gameState.playerScore >= GAME_CONFIG.TARGET_SCORE) {
       const message = gameState.winStreak >= 10 
@@ -240,6 +251,9 @@ export const useGame = () => {
       gamePhase: 'waiting'
       // winStreak は保持
     }))
+    
+    // ref もリセット
+    prevPlayerHandRef.current = []
   }, [timerInterval])
 
   // 完全リセット（連勝数もリセット）
@@ -261,12 +275,14 @@ export const useGame = () => {
       gamePhase: 'waiting',
       winStreak: 0
     })
+    
+    // ref もリセット
+    prevPlayerHandRef.current = []
   }, [timerInterval])
 
   // プレイヤーカード選択
   const selectPlayerCard = useCallback((card: ChemicalCard) => {
     if (gameState.gamePhase !== 'thinking') return
-
     setGameState(prev => ({ ...prev, playerSelectedCard: card }))
   }, [gameState.gamePhase])
 
@@ -315,8 +331,8 @@ export const useGame = () => {
     return { playerCard, computerCard }
   }, [gameState.playerSelectedCard, gameState.currentTopic, gameState.computerHand, gameState.playerHand, gameState.winStreak, computerSelectCard, timerInterval])
 
-  // 現在のCPU難易度を取得
-  const getCurrentCPUDifficulty = useCallback(() => {
+  // 現在のCPU難易度を取得（メモ化）
+  const getCurrentCPUDifficulty = useMemo(() => {
     const randomness = calculateCPURandomness(gameState.winStreak)
     const accuracy = Math.round((1 - randomness) * 100)
     return {
@@ -329,11 +345,6 @@ export const useGame = () => {
     }
   }, [gameState.winStreak])
 
-  // 初期化
-  useEffect(() => {
-    // 初期化時はカードを配らない（シャッフル画面で決める）
-  }, [])
-
   // クリーンアップ
   useEffect(() => {
     return () => {
@@ -343,20 +354,35 @@ export const useGame = () => {
     }
   }, [timerInterval])
 
-  return {
+  return useMemo(() => ({
     gameState,
     dealCards,
-    setPlayerHand, // 新しく追加
+    setPlayerHand,
     selectRandomTopic,
     startTimer,
     judgeRound,
     checkGameEnd,
     getFinalResult,
     resetGame,
-    fullReset, // 新しく追加
+    fullReset,
     selectPlayerCard,
     startNewRound,
     playCard,
-    getCurrentCPUDifficulty // 新しく追加
-  }
+    getCurrentCPUDifficulty
+  }), [
+    gameState,
+    dealCards,
+    setPlayerHand,
+    selectRandomTopic,
+    startTimer,
+    judgeRound,
+    checkGameEnd,
+    getFinalResult,
+    resetGame,
+    fullReset,
+    selectPlayerCard,
+    startNewRound,
+    playCard,
+    getCurrentCPUDifficulty
+  ])
 }

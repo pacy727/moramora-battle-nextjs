@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ChemicalCard } from './types/game'
 import { useBattleRoad } from './lib/useBattleRoad'
 import TitleScreen from './components/TitleScreen'
@@ -28,38 +28,34 @@ export default function Home() {
   } = useBattleRoad()
 
   // タイトル画面からゲーム開始
-  const handleStartGame = () => {
+  const handleStartGame = useCallback(() => {
     resetToTitle() // 連勝記録リセット（抜け道防止）
     setGameMode('battle-road')
-  }
+  }, [resetToTitle])
 
   // バトルロードからシャッフル画面へ（初回 or 勝利後）
-  const handleStartNextBattle = () => {
+  const handleStartNextBattle = useCallback(() => {
     console.log('handleStartNextBattle呼び出し')
     console.log('hasStartedFirstBattle:', hasStartedFirstBattle)
-    console.log('startFirstBattle:', typeof startFirstBattle)
     
     if (!hasStartedFirstBattle) {
       // 初回バトル開始
-      if (typeof startFirstBattle === 'function') {
-        startFirstBattle()
-      } else {
-        console.error('startFirstBattle is not a function:', startFirstBattle)
-      }
+      startFirstBattle()
     }
     
     setGameResult(null)
     setGameMode('shuffle')
-  }
+  }, [hasStartedFirstBattle, startFirstBattle])
 
   // シャッフル完了後ゲーム画面へ
-  const handleShuffleComplete = (finalHand: ChemicalCard[]) => {
+  const handleShuffleComplete = useCallback((finalHand: ChemicalCard[]) => {
     setPlayerHand(finalHand)
     setGameMode('game')
-  }
+  }, [])
 
   // ゲーム結果を受けてバトルロード画面へ
-  const handleGameEnd = (result: 'victory' | 'defeat') => {
+  const handleGameEnd = useCallback((result: 'victory' | 'defeat') => {
+    console.log('ゲーム結果受信:', result)
     setGameResult(result)
     
     if (result === 'victory') {
@@ -69,33 +65,65 @@ export default function Home() {
     }
     
     setGameMode('battle-road')
-  }
+  }, [handleVictory, handleDefeat])
 
   // ゲームオーバー時タイトルへ
-  const handleGameOver = () => {
+  const handleGameOver = useCallback(() => {
     resetToTitle()
     setGameMode('title')
-  }
+  }, [resetToTitle])
 
   // リベンジ時の処理
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     retryBattle()
     setGameResult(null)
     setGameMode('shuffle')
-  }
+  }, [retryBattle])
 
   // タイトルに戻る（どの画面からでも）
-  const handleBackToTitle = () => {
+  const handleBackToTitle = useCallback(() => {
     resetToTitle() // 連勝記録完全リセット
     setGameMode('title')
     setPlayerHand([])
     setGameResult(null)
-  }
+  }, [resetToTitle])
 
   // シャッフル画面からタイトルに戻る
-  const handleBackToTitleFromShuffle = () => {
+  const handleBackToTitleFromShuffle = useCallback(() => {
     handleBackToTitle()
-  }
+  }, [handleBackToTitle])
+
+  // ゲームクリア判定をメモ化
+  const gameCleared = useMemo(() => isGameClear(), [isGameClear])
+
+  // BattleRoadScreenのpropsをメモ化
+  const battleRoadProps = useMemo(() => ({
+    currentElement: battleRoadState.currentElement,
+    wins: battleRoadState.wins,
+    life: battleRoadState.life,
+    isVictory: gameResult === 'victory',
+    isDefeat: gameResult === 'defeat',
+    isGameClear: gameCleared,
+    onStartNextBattle: handleStartNextBattle,
+    onGameOver: handleGameOver,
+    onRetry: handleRetry
+  }), [
+    battleRoadState.currentElement,
+    battleRoadState.wins,
+    battleRoadState.life,
+    gameResult,
+    gameCleared,
+    handleStartNextBattle,
+    handleGameOver,
+    handleRetry
+  ])
+
+  // BattlefieldGameScreenのpropsをメモ化
+  const battlefieldProps = useMemo(() => ({
+    onBackToTitle: handleBackToTitle,
+    onGameEnd: handleGameEnd,
+    initialPlayerHand: playerHand
+  }), [handleBackToTitle, handleGameEnd, playerHand])
 
   return (
     <>
@@ -104,17 +132,7 @@ export default function Home() {
       )}
       
       {gameMode === 'battle-road' && (
-        <BattleRoadScreen
-          currentElement={battleRoadState.currentElement}
-          wins={battleRoadState.wins}
-          life={battleRoadState.life}
-          isVictory={gameResult === 'victory'}
-          isDefeat={gameResult === 'defeat'}
-          isGameClear={isGameClear()}
-          onStartNextBattle={handleStartNextBattle}
-          onGameOver={handleGameOver}
-          onRetry={handleRetry}
-        />
+        <BattleRoadScreen {...battleRoadProps} />
       )}
       
       {gameMode === 'shuffle' && (
@@ -125,11 +143,7 @@ export default function Home() {
       )}
       
       {gameMode === 'game' && (
-        <BattlefieldGameScreen 
-          onBackToTitle={handleBackToTitle}
-          onGameEnd={handleGameEnd} // 勝敗結果を受け取る新しいprop
-          initialPlayerHand={playerHand}
-        />
+        <BattlefieldGameScreen {...battlefieldProps} />
       )}
     </>
   )
