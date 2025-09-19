@@ -118,12 +118,27 @@ export default function Home() {
     handleRetry
   ])
 
-  // BattlefieldGameScreenのpropsをメモ化
-  const battlefieldProps = useMemo(() => ({
-    onBackToTitle: handleBackToTitle,
-    onGameEnd: handleGameEnd,
-    initialPlayerHand: playerHand
-  }), [handleBackToTitle, handleGameEnd, playerHand])
+  // BattlefieldGameScreenのpropsを最小化
+  const stableOnBackToTitle = () => {
+    console.log('onBackToTitle実行')
+    resetToTitle()
+    setGameMode('title')
+    setPlayerHand([])
+    setGameResult(null)
+  }
+
+  const stableOnGameEnd = (result: 'victory' | 'defeat') => {
+    console.log('onGameEnd実行:', result)
+    setGameResult(result)
+    
+    if (result === 'victory') {
+      handleVictory()
+    } else {
+      handleDefeat()
+    }
+    
+    setGameMode('battle-road')
+  }
 
   return (
     <>
@@ -143,7 +158,11 @@ export default function Home() {
       )}
       
       {gameMode === 'game' && (
-        <BattlefieldGameScreen {...battlefieldProps} />
+        <BattlefieldGameScreen 
+          onBackToTitle={stableOnBackToTitle}
+          onGameEnd={stableOnGameEnd}
+          initialPlayerHand={playerHand}
+        />
       )}
     </>
   )

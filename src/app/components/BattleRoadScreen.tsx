@@ -99,68 +99,60 @@ export default function BattleRoadScreen({
     console.log('勝利状態監視useEffect:', { 
       isVictory, 
       animationExecuted: animationExecutedRef.current,
-      currentElement 
+      currentElement,
+      animationPhase
     })
     
     if (isVictory && !animationExecutedRef.current) {
-      console.log('勝利状態検出 - アニメーション開始')
+      console.log('=== 勝利アニメーション開始 ===')
       animationExecutedRef.current = true
       
       setShowBattleMessage(false)
       setAnimationPhase('victory-sequence')
 
-      // シンプルなアニメーションシーケンス
-      let step = 0
-      const executeStep = () => {
-        step++
-        console.log(`勝利アニメーションステップ ${step}`)
+      // 即座に最初のステップを実行
+      setTimeout(() => {
+        console.log('Step 1: 勝利マーク表示 (1秒)')
         
-        switch (step) {
-          case 1: // 勝利マーク表示
-            console.log('勝利マーク表示')
-            break
-          case 2: // 道路移動
-            console.log('道路移動開始')
-            setRoadOffset(-160)
-            break
-          case 3: // 次のメッセージ表示
+        setTimeout(() => {
+          console.log('Step 2: 道路移動開始 (1.5秒)')
+          setRoadOffset(-160)
+          
+          setTimeout(() => {
+            console.log('Step 3: 次のメッセージ判定 (2秒)')
             if (currentElement >= 53) {
               console.log('ゲームクリア!')
               setAnimationPhase('game-clear')
               setShowConfetti(true)
-              return
             } else {
               console.log('次バトルメッセージ表示')
               setShowBattleMessage(true)
+              
+              setTimeout(() => {
+                console.log('Step 4: 次のバトル開始処理 (2秒)')
+                setAnimationPhase('waiting')
+                setShowBattleMessage(false)
+                setRoadOffset(0)
+                animationExecutedRef.current = false
+                
+                console.log('onStartNextBattle() を呼び出し')
+                onStartNextBattle()
+              }, 2000)
             }
-            break
-          case 4: // 次バトル開始
-            console.log('次のバトル開始処理')
-            setAnimationPhase('waiting')
-            setShowBattleMessage(false)
-            setRoadOffset(0) // オフセットリセット
-            animationExecutedRef.current = false
-            onStartNextBattle()
-            return
-        }
-
-        if (step < 4) {
-          timeoutRef.current = setTimeout(executeStep, step === 1 ? 1000 : step === 2 ? 1500 : 2000)
-        }
-      }
-
-      executeStep()
-
-      return () => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-        }
-      }
+          }, 2000)
+        }, 1500)
+      }, 1000)
     }
-  }, [isVictory, currentElement, onStartNextBattle]) // 必要な依存関係を追加
+  }, [isVictory, currentElement, onStartNextBattle])
 
   // 敗北状態の監視
   useEffect(() => {
+    console.log('敗北状態監視useEffect:', { 
+      isDefeat, 
+      animationExecuted: animationExecutedRef.current,
+      life 
+    })
+    
     if (isDefeat && !animationExecutedRef.current) {
       console.log('敗北状態検出 - アニメーション開始')
       animationExecutedRef.current = true
@@ -168,8 +160,13 @@ export default function BattleRoadScreen({
       setShowBattleMessage(false)
       setAnimationPhase('defeat-sequence')
 
+      // 敗北時の現在のライフを保存
+      const currentLife = life
+
       const timer = setTimeout(() => {
-        if (life <= 1) {
+        console.log('敗北処理実行 - ライフ:', currentLife)
+        
+        if (currentLife <= 1) {
           console.log('ゲームオーバー処理')
           onGameOver()
         } else {
@@ -180,9 +177,12 @@ export default function BattleRoadScreen({
         }
       }, 3000)
 
-      return () => clearTimeout(timer)
+      return () => {
+        console.log('敗北アニメーション useEffect クリーンアップ')
+        clearTimeout(timer)
+      }
     }
-  }, [isDefeat]) // 依存関係を最小化
+  }, [isDefeat]) // 依存関係を最小化（life、onGameOver、onRetryを削除）
 
   // ゲームクリア処理
   useEffect(() => {
@@ -194,11 +194,21 @@ export default function BattleRoadScreen({
 
   // 元素の状態を取得
   const getElementState = (elementIndex: number) => {
+    // 既に倒した元素（現在の元素より小さい番号）
     if (elementIndex < currentElement) return 'defeated'
+    
+    // 現在勝利中の元素（現在の元素と一致し、勝利アニメーション中）
     if (elementIndex === currentElement && animationPhase === 'victory-sequence') return 'victory'
+    
+    // 現在敗北中の元素
     if (elementIndex === currentElement && animationPhase === 'defeat-sequence') return 'current-defeat'
+    
+    // 現在の対戦相手（通常状態）
     if (elementIndex === currentElement) return 'current-battle'
+    
+    // 未来の相手
     if (elementIndex > currentElement) return 'upcoming'
+    
     return 'normal'
   }
 
@@ -409,14 +419,14 @@ export default function BattleRoadScreen({
         )}
 
         {/* 次のバトルメッセージ */}
-        {showBattleMessage && animationPhase === 'victory-sequence' && currentElement + 1 < ELEMENTS.length && (
+        {showBattleMessage && animationPhase === 'victory-sequence' && currentElement < ELEMENTS.length - 1 && (
           <div className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in">
             <div className="bg-gradient-to-br from-green-600/90 to-teal-600/90 backdrop-blur-md rounded-2xl p-12 text-center">
               <div className="text-4xl font-bold text-white mb-6">
-                🧪 次の挑戦者: {ELEMENTS[currentElement + 1]} 🧪
+                🧪 次の挑戦者: {ELEMENTS[currentElement]} 🧪
               </div>
               <div className="text-xl text-white mb-8">
-                元素 #{currentElement + 2}: {ELEMENTS[currentElement + 1]}（{getElementName(currentElement + 1)}）
+                元素 #{currentElement + 1}: {ELEMENTS[currentElement]}（{getElementName(currentElement)}）
               </div>
               <div className="text-lg text-white/80">
                 次のバトルが始まります...
@@ -472,6 +482,13 @@ export default function BattleRoadScreen({
             <div>Message: {showBattleMessage.toString()}</div>
             <div>Offset: {roadOffset}px</div>
             <div>Executed: {animationExecutedRef.current.toString()}</div>
+            <div>Displayed Elements: {displayedElements.join(', ')}</div>
+            <div>Element States:</div>
+            {displayedElements.map(el => (
+              <div key={el} style={{fontSize: '10px', marginLeft: '10px'}}>
+                {el}: {ELEMENTS[el]} = {getElementState(el)}
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-// src/app/components/Game/BattleArena.tsx
+// src/app/components/Game/BattleArena.tsx (更新版 - 次のラウンドボタン削除)
 'use client'
 
 import { ChemicalCard, Topic } from '../../types/game'
@@ -245,21 +245,6 @@ export const BattleArena = ({
           >
             <span className="relative z-10 flex items-center gap-3">
               🚀 <span>ゲーム開始</span> 🚀
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-          </button>
-        </div>
-      )}
-
-      {/* 次のラウンドボタン */}
-      {battlePhase === 'round-end' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-purple-900/80 backdrop-blur-md z-20">
-          <button
-            onClick={onStartNewRound}
-            className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold py-6 px-12 rounded-2xl text-2xl transition-all duration-300 shadow-2xl hover:shadow-green-500/50 hover:-translate-y-2 hover:scale-110 animate-bounce-in relative overflow-hidden group"
-          >
-            <span className="relative z-10 flex items-center gap-3">
-              ⚡ <span>次のラウンド</span> ⚡
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
           </button>
